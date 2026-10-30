@@ -2,12 +2,26 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import App from '../App.jsx'
+import * as api from '../services/api.js'
 
 vi.mock('../services/api.js', () => ({
-  getHealth: vi.fn().mockResolvedValue({ status: 'ok' }),
-  getDbHealth: vi.fn().mockRejectedValue(new Error('down')),
+  getHealth: vi.fn(),
+  getDbHealth: vi.fn(),
+  loginRequest: vi.fn(),
+  registerRequest: vi.fn(),
+  logoutRequest: vi.fn(),
+  getMe: vi.fn(),
+  listUsers: vi.fn(),
+  createUser: vi.fn(),
+  updateUser: vi.fn(),
   default: {},
 }))
+
+beforeEach(() => {
+  localStorage.clear()
+  api.getHealth.mockResolvedValue({ status: 'ok' })
+  api.getDbHealth.mockRejectedValue(new Error('down'))
+})
 
 const renderAt = (path) =>
   render(

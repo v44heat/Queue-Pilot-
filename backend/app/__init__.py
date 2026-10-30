@@ -8,12 +8,14 @@ from .config import CONFIG_MAP
 from .extensions import cors, db, jwt, limiter, migrate
 
 
-def create_app(config_name: str | None = None) -> Flask:
+def create_app(config_name: str | None = None, overrides: dict | None = None) -> Flask:
     config_name = config_name or os.environ.get("FLASK_ENV", "development")
     config_class = CONFIG_MAP.get(config_name, CONFIG_MAP["development"])
 
     app = Flask(__name__)
     app.config.from_object(config_class)
+    if overrides:
+        app.config.update(overrides)
 
     missing = [
         k for k in ("SECRET_KEY", "JWT_SECRET_KEY", "SQLALCHEMY_DATABASE_URI")
@@ -35,9 +37,18 @@ def create_app(config_name: str | None = None) -> Flask:
     limiter.init_app(app)
     limiter.default_limits = [app.config["RATELIMIT_DEFAULT"]]
 
+    from . import models  # noqa: F401  (register models with SQLAlchemy metadata)
+    from .cli import register_cli
+    from .routes.auth import auth_bp
     from .routes.health import health_bp
+    from .routes.users import users_bp
+    from .utils.auth import register_jwt_handlers
 
+    register_jwt_handlers()
     app.register_blueprint(health_bp, url_prefix="/api")
+    app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(users_bp, url_prefix="/api/users")
+    register_cli(app)
 
     _register_error_handlers(app)
     return app

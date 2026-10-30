@@ -1,5 +1,6 @@
 """Configuration classes. All secrets come from environment variables."""
 import os
+from datetime import timedelta
 
 from dotenv import load_dotenv
 
@@ -14,6 +15,7 @@ for _candidate in (os.path.join(_here, "..", ".env"), os.path.join(_here, "..", 
 class BaseConfig:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=int(os.environ.get("JWT_ACCESS_MINUTES", "60")))
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
