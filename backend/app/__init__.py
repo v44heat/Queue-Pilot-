@@ -41,13 +41,22 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     from .cli import register_cli
     from .routes.auth import auth_bp
     from .routes.health import health_bp
+    from .routes.queue import queue_bp
+    from .routes.services import services_bp
     from .routes.users import users_bp
+    from .services.queue_service import QueueError
     from .utils.auth import register_jwt_handlers
 
     register_jwt_handlers()
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(users_bp, url_prefix="/api/users")
+    app.register_blueprint(services_bp, url_prefix="/api/services")
+    app.register_blueprint(queue_bp, url_prefix="/api/queue")
+
+    @app.errorhandler(QueueError)
+    def handle_queue_error(e):
+        return jsonify(error=e.code, message=e.message), e.status
     register_cli(app)
 
     _register_error_handlers(app)

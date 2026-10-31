@@ -23,6 +23,8 @@ class BaseConfig:
     RATELIMIT_DEFAULT = os.environ.get("RATELIMIT_DEFAULT", "200 per hour")
     RATELIMIT_STORAGE_URI = "memory://"
     APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "Africa/Nairobi")
+    # Ticket numbers restart each local day unless this is set to false.
+    QUEUE_RESET_DAILY = os.environ.get("QUEUE_RESET_DAILY", "true").lower() not in ("0", "false", "no")
     JSON_SORT_KEYS = False
     TESTING = False
 

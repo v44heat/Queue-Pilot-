@@ -1,9 +1,10 @@
-"""Flask CLI commands (controlled admin bootstrap)."""
+"""Flask CLI commands (admin bootstrap, seed data)."""
 import click
 from flask import Flask
 
 from .extensions import db
 from .models.user import User
+from .services.seed import seed_services
 from .utils.validation import validate_new_user
 
 
@@ -28,3 +29,8 @@ def register_cli(app: Flask) -> None:
         db.session.add(user)
         db.session.commit()
         click.echo(f"Admin created: {user.email} (id={user.id})")
+
+    @app.cli.command("seed-services")
+    def seed_services_command():
+        """Create the default demo services (idempotent)."""
+        click.echo(f"Created {seed_services()} service(s).")
