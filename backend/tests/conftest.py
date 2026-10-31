@@ -2,6 +2,7 @@ import pytest
 
 from app import create_app
 from app.extensions import db
+from app.models.service import Service
 from app.models.user import User
 
 
@@ -31,6 +32,17 @@ def make_user(app):
         db.session.add(user)
         db.session.commit()
         return user
+
+    return _make
+
+
+@pytest.fixture()
+def make_service(app):
+    def _make(name="General Enquiry", prefix="GEN", duration=10, status="ACTIVE"):
+        service = Service(name=name, prefix=prefix, default_service_duration=duration, status=status)
+        db.session.add(service)
+        db.session.commit()
+        return service
 
     return _make
 
