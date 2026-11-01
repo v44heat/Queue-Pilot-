@@ -40,9 +40,11 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     from . import models  # noqa: F401  (register models with SQLAlchemy metadata)
     from .cli import register_cli
     from .routes.auth import auth_bp
+    from .routes.counters import counters_bp
     from .routes.health import health_bp
     from .routes.queue import queue_bp
     from .routes.services import services_bp
+    from .routes.staff import staff_bp
     from .routes.users import users_bp
     from .services.queue_service import QueueError
     from .utils.auth import register_jwt_handlers
@@ -53,6 +55,8 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(services_bp, url_prefix="/api/services")
     app.register_blueprint(queue_bp, url_prefix="/api/queue")
+    app.register_blueprint(counters_bp, url_prefix="/api/counters")
+    app.register_blueprint(staff_bp, url_prefix="/api/staff")
 
     @app.errorhandler(QueueError)
     def handle_queue_error(e):

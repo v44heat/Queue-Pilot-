@@ -8,6 +8,7 @@ import Login from './pages/Login.jsx'
 import NotFound from './pages/NotFound.jsx'
 import Register from './pages/Register.jsx'
 import RoleHome from './pages/RoleHome.jsx'
+import StaffDashboard from './pages/StaffDashboard.jsx'
 
 export default function App() {
   return (
@@ -22,9 +23,7 @@ export default function App() {
               <RoleHome title="Customer dashboard" note="Joining queues and live tracking arrive in Phases 3 and 6." />
             </ProtectedRoute>} />
           <Route path="staff" element={
-            <ProtectedRoute roles={['STAFF']}>
-              <RoleHome title="Staff dashboard" note="Counter and customer-calling workflows arrive in Phase 4." />
-            </ProtectedRoute>} />
+            <ProtectedRoute roles={['STAFF']}><StaffDashboard /></ProtectedRoute>} />
           <Route path="admin" element={
             <ProtectedRoute roles={['ADMIN']}>
               <RoleHome title="Admin dashboard" note="Analytics and monitoring arrive in Phases 7 and 8. User management is available now under Users." />

@@ -45,14 +45,23 @@ class QueueError(Exception):
 
 
 # ---- numbering scope -------------------------------------------------------------------------
-def _local_today() -> date:
+def _local_tz():
     name = current_app.config.get("APP_TIMEZONE", "UTC")
     try:
-        tz = ZoneInfo(name)
+        return ZoneInfo(name)
     except ZoneInfoNotFoundError:
         current_app.logger.warning("Unknown APP_TIMEZONE %r; falling back to UTC", name)
-        tz = timezone.utc
-    return datetime.now(tz).date()
+        return timezone.utc
+
+
+def _local_today() -> date:
+    return datetime.now(_local_tz()).date()
+
+
+def local_day_start_utc() -> datetime:
+    """Start of the current local day, expressed in UTC (for 'today' statistics)."""
+    start = datetime.combine(_local_today(), datetime.min.time(), tzinfo=_local_tz())
+    return start.astimezone(timezone.utc)
 
 
 def numbering_scope_date() -> date:
@@ -69,7 +78,7 @@ def can_transition(current: str, new: str) -> bool:
 
 
 def transition(ticket: QueueTicket, new_status: str) -> None:
-    """Validate and apply a status change (caller commits). Phase 4 adds timestamp recording."""
+    """Validate and apply a status change (caller commits). Timestamps/durations are recorded by staff_service."""
     if not can_transition(ticket.status, new_status):
         raise QueueError(
             "invalid_transition",
@@ -124,6 +133,7 @@ def serialize_ticket(ticket: QueueTicket) -> dict:
         "queue_number": ticket.queue_number,
         "service": {"id": ticket.service.id, "name": ticket.service.name, "prefix": ticket.service.prefix},
         "status": ticket.status,
+        "counter": None if ticket.counter is None else {"id": ticket.counter.id, "name": ticket.counter.name},
         "people_ahead": ahead,
         "position": None if ahead is None else ahead + 1,
         "predicted_waiting_time": ticket.predicted_waiting_time,  # None until Phase 5 prediction
@@ -134,6 +144,13 @@ def serialize_ticket(ticket: QueueTicket) -> dict:
         "service_start_time": _iso(ticket.service_start_time),
         "service_end_time": _iso(ticket.service_end_time),
     }
+
+
+def serialize_ticket_for_staff(ticket: QueueTicket) -> dict:
+    """Ticket view for staff: adds the customer's name (never exposed to other customers)."""
+    d = serialize_ticket(ticket)
+    d["customer"] = {"id": ticket.user.id, "name": ticket.user.name}
+    return d
 
 
 # ---- commands --------------------------------------------------------------------------------

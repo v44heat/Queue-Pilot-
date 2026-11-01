@@ -3,8 +3,9 @@ import click
 from flask import Flask
 
 from .extensions import db
+from .models.counter import Counter, StaffCounterAssignment
 from .models.user import User
-from .services.seed import seed_services
+from .services.seed import seed_counters, seed_services
 from .utils.validation import validate_new_user
 
 
@@ -34,3 +35,25 @@ def register_cli(app: Flask) -> None:
     def seed_services_command():
         """Create the default demo services (idempotent)."""
         click.echo(f"Created {seed_services()} service(s).")
+
+    @app.cli.command("seed-counters")
+    def seed_counters_command():
+        """Create one closed counter per active service (idempotent)."""
+        click.echo(f"Created {seed_counters()} counter(s).")
+
+    @app.cli.command("assign-staff")
+    @click.option("--email", required=True, help="Email of an existing STAFF account.")
+    @click.option("--counter-id", required=True, type=int)
+    def assign_staff_command(email, counter_id):
+        """Assign a staff member to a counter."""
+        staff = User.query.filter_by(email=email.strip().lower()).first()
+        if staff is None or staff.role != "STAFF":
+            raise click.ClickException("No STAFF account with that email.")
+        counter = db.session.get(Counter, counter_id)
+        if counter is None:
+            raise click.ClickException("No counter with that id.")
+        if StaffCounterAssignment.query.filter_by(staff_id=staff.id, counter_id=counter.id).first():
+            raise click.ClickException("Already assigned.")
+        db.session.add(StaffCounterAssignment(staff_id=staff.id, counter_id=counter.id))
+        db.session.commit()
+        click.echo(f"Assigned {staff.email} to {counter.name}.")
