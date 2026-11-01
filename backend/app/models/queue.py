@@ -34,8 +34,8 @@ class QueueTicket(db.Model):
     queue_number = db.Column(db.String(20), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     service_id = db.Column(db.Integer, db.ForeignKey("services.id"), nullable=False)
-    # FK to counters is added in Phase 4, when the counters table is introduced.
-    counter_id = db.Column(db.Integer)
+    # Set when a counter calls the ticket; kept afterwards as a record of who served it.
+    counter_id = db.Column(db.Integer, db.ForeignKey("counters.id", name="fk_queue_tickets_counter_id"))
 
     # Ordering key within a service: (queue_date, sequence). queue_date is the numbering scope.
     queue_date = db.Column(db.Date, nullable=False)
@@ -55,6 +55,7 @@ class QueueTicket(db.Model):
 
     service = db.relationship("Service")
     user = db.relationship("User")
+    counter = db.relationship("Counter")
 
     __table_args__ = (
         CheckConstraint(
@@ -69,6 +70,12 @@ class QueueTicket(db.Model):
             "uq_queue_tickets_one_active_per_user_service",
             "user_id", "service_id", unique=True,
             postgresql_where=text(_ACTIVE_SQL), sqlite_where=text(_ACTIVE_SQL),
+        ),
+        # A counter can hold only one CALLED/SERVING ticket at a time (never two customers at once).
+        Index(
+            "uq_queue_tickets_one_active_per_counter",
+            "counter_id", unique=True,
+            postgresql_where=text("status IN ('CALLED','SERVING')"), sqlite_where=text("status IN ('CALLED','SERVING')"),
         ),
         Index("ix_queue_tickets_service_status_order", "service_id", "status", "queue_date", "sequence"),
         Index("ix_queue_tickets_user_created", "user_id", "created_at"),

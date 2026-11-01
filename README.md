@@ -3,9 +3,9 @@
 **Smarter Queues. Less Waiting.**
 Machine Learning-Based Smart Queue Management and Service Time Prediction System.
 
-> **Status: Phase 3 of 10 (core queue management).** Foundation, authentication/roles and
-> the backend queue engine (services, tickets, numbering, positions, cancellation, history)
-> exist. Staff workflows, ML predictions and the customer/admin queue screens arrive in later phases.
+> **Status: Phase 4 of 10 (staff and counters).** Foundation, authentication/roles, the backend
+> queue engine and staff counter workflows (open/close, call next, start, complete, skip, absent)
+> with a working staff dashboard exist. ML predictions and the customer/admin screens arrive in later phases.
 > This README documents only commands that exist in the current code.
 
 ## Stack
@@ -55,7 +55,8 @@ Runs at http://127.0.0.1:5000.
 flask db upgrade
 ```
 Run from `backend/` with the venv active (`FLASK_APP=run.py` is read from `.env`). This creates
-the `users`, `token_blocklist`, `services`, `queue_counters` and `queue_tickets` tables. When you change models later:
+the `users`, `token_blocklist`, `services`, `queue_counters`, `queue_tickets`, `counters` and
+`staff_counter_assignments` tables. When you change models later:
 `flask db migrate -m "message"`, review the generated file, then `flask db upgrade`.
 
 ### Create the first administrator
@@ -72,6 +73,14 @@ flask seed-services
 ```
 Creates General Enquiry (GEN), Payments (PAY), Registration (REG), Technical Support (TEC) and
 Document Collection (DOC). Safe to run repeatedly. The default durations are demo estimates.
+
+### Seed counters and assign staff
+```
+flask seed-counters
+flask assign-staff --email staff@example.com --counter-id 1
+```
+`seed-counters` creates one CLOSED counter per service ("GEN Counter 1", ...). `assign-staff` links an existing
+STAFF account to a counter. (Admins can also do both through the API below; the admin screens arrive in Phase 7.)
 
 ### Auth API
 | Method | Path | Access | Notes |
@@ -119,6 +128,43 @@ python scripts/concurrency_check.py --customers 30
 ```
 It creates and then removes its own temporary service and users, and exits non-zero on any failure.
 
+### Counter and staff API (Phase 4)
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| GET | `/api/counters` | ADMIN | All counters with assigned staff, availability, current customer |
+| POST | `/api/counters` | ADMIN | `{"name", "service_id"?, "status"?}` (status CLOSED or INACTIVE) |
+| PATCH | `/api/counters/<id>` | ADMIN | name, service_id, status. 409 while a customer is at the counter |
+| POST | `/api/counters/<id>/staff` | ADMIN | `{"staff_id"}` must be an active STAFF account |
+| DELETE | `/api/counters/<id>/staff/<staff_id>` | ADMIN | Blocked for the only staff member while serving |
+| GET | `/api/staff/counters` | STAFF | Only the counters assigned to you |
+| GET | `/api/staff/counters/<id>/queue` | STAFF | Waiting list, current customer, today's real statistics |
+| POST | `/api/staff/counters/<id>/open` / `close` | STAFF | Cannot close while a customer is present |
+| POST | `/api/staff/counters/<id>/call-next` | STAFF | Calls the first WAITING ticket of the counter's service |
+| POST | `/api/staff/tickets/<id>/start` / `complete` / `skip` / `absent` | STAFF | Lifecycle actions |
+
+Counter states: OPEN (operating), CLOSED (default; staff can open it), INACTIVE (disabled by an admin).
+"Busy" is derived: a counter holding a CALLED or SERVING ticket. `GET /api/services` now also reports, per service,
+how many counters are `open`, `busy` and `available` (used by the ML features in Phase 5).
+
+**Staff rules**
+- Staff act only on counters they are assigned to (others return 404). Admins configure counters but cannot open
+  them or call/serve customers: those actions are staff-only.
+- Call-next uses an atomic compare-and-set, so two staff can never call the same ticket; a database index also
+  guarantees a counter never holds two CALLED/SERVING customers.
+- When service starts, `actual_waiting_time = service_start_time - join_time`. When it completes,
+  `service_duration = service_end_time - service_start_time`. Both are stored in minutes (2 decimals) and come
+  from server-recorded UTC timestamps.
+- A counter serves one service (`counters.service_id`). Counters serving several services are not supported.
+- Statistics ("served today", average service time) count completed tickets since the start of the local day
+  (`APP_TIMEZONE`).
+
+**Staff concurrency check (run on PostgreSQL).** From `backend/`:
+```
+python scripts/staff_concurrency_check.py --counters 8
+```
+It fires simultaneous call-next requests from many counters (each must get a different ticket) and from several
+staff sharing one counter (exactly one may succeed), then deletes its temporary data.
+
 Authorization reads the user's role and status from the database on every request (not from the
 token), so role changes and deactivation take effect immediately. Frontend route guards are for
 user experience only; the backend is the authority.
@@ -142,6 +188,15 @@ cd frontend && npm test
 ```
 Backend tests use in-memory SQLite for speed; the real PostgreSQL connection and the migration
 against PostgreSQL are verified manually (`flask db upgrade`, then `/api/health/db`).
+
+## Verifying Phase 4 (manual, on PostgreSQL)
+1. `flask db upgrade`, `flask seed-services`, `flask seed-counters` succeed; `flask create-admin` if you have no admin.
+2. Log in as the admin, create a STAFF user under **Users**, then `flask assign-staff --email <that email> --counter-id 1`.
+3. `python scripts/staff_concurrency_check.py --counters 8` prints PASSED.
+4. In two browsers: a customer joins a queue via the API (customer screens come in Phase 6); the staff member
+   opens `/staff`, clicks **Open counter**, then **Call next customer**, **Start service**, **Complete service**.
+5. The staff dashboard's stats and the customer's `GET /api/queue/history` show the recorded waiting time and
+   service duration. **Skip** / **Mark absent** free the counter for the next customer.
 
 ## Verifying Phase 3 (manual, on PostgreSQL)
 1. `flask db upgrade` then `flask seed-services` succeed.

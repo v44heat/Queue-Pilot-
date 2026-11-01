@@ -2,8 +2,17 @@ import pytest
 
 from app import create_app
 from app.extensions import db
+from app.models.counter import Counter, StaffCounterAssignment
 from app.models.service import Service
 from app.models.user import User
+
+
+@pytest.fixture(autouse=True)
+def fast_password_hashing(monkeypatch):
+    """Tests create many users; use a cheap (still salted, real) hash so the suite stays fast."""
+    from werkzeug.security import generate_password_hash
+
+    monkeypatch.setattr("app.models.user.hash_password", lambda pw: generate_password_hash(pw, method="pbkdf2:sha256:1000"))
 
 
 @pytest.fixture()
@@ -43,6 +52,20 @@ def make_service(app):
         db.session.add(service)
         db.session.commit()
         return service
+
+    return _make
+
+
+@pytest.fixture()
+def make_counter(app):
+    def _make(name="Counter 1", service=None, status="OPEN", staff=()):
+        counter = Counter(name=name, service_id=service.id if service else None, status=status)
+        db.session.add(counter)
+        db.session.flush()
+        for s in staff:
+            db.session.add(StaffCounterAssignment(staff_id=s.id, counter_id=counter.id))
+        db.session.commit()
+        return counter
 
     return _make
 

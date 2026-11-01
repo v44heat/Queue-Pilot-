@@ -39,4 +39,13 @@ export const listUsers = (params) => api.get('/api/users', { params }).then(data
 export const createUser = (payload) => api.post('/api/users', payload).then(data)
 export const updateUser = (id, payload) => api.patch(`/api/users/${id}`, payload).then(data)
 
+// ---- staff ----
+export const getStaffCounters = () => api.get('/api/staff/counters').then(data)
+export const getCounterQueue = (id) => api.get(`/api/staff/counters/${id}/queue`).then(data)
+export const openCounter = (id) => api.post(`/api/staff/counters/${id}/open`).then(data)
+export const closeCounter = (id) => api.post(`/api/staff/counters/${id}/close`).then(data)
+export const callNext = (id) => api.post(`/api/staff/counters/${id}/call-next`).then(data)
+// action: 'start' | 'complete' | 'skip' | 'absent'
+export const ticketAction = (ticketId, action) => api.post(`/api/staff/tickets/${ticketId}/${action}`).then(data)
+
 export default api
