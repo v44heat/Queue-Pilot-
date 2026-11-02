@@ -5,6 +5,9 @@ from flask import Flask
 from .extensions import db
 from .models.counter import Counter, StaffCounterAssignment
 from .models.user import User
+from .ml.synthetic import generate_dataset
+from .services import ml_service
+from .services.queue_service import QueueError
 from .services.seed import seed_counters, seed_services
 from .utils.validation import validate_new_user
 
@@ -57,3 +60,37 @@ def register_cli(app: Flask) -> None:
         db.session.add(StaffCounterAssignment(staff_id=staff.id, counter_id=counter.id))
         db.session.commit()
         click.echo(f"Assigned {staff.email} to {counter.name}.")
+
+    @app.cli.command("ml-generate-data")
+    @click.option("--rows", default=6000, show_default=True, type=int)
+    @click.option("--seed", default=42, show_default=True, type=int)
+    @click.option("--out", default="../data/synthetic_waiting_times.csv", show_default=True)
+    def ml_generate_data(rows, seed, out):
+        """Write a reproducible SYNTHETIC dataset (development/demo only) to a CSV file."""
+        df = generate_dataset(rows, seed)
+        df.to_csv(out, index=False)
+        click.echo(f"Wrote {len(df)} synthetic rows to {out} (seed={seed}).")
+
+    @app.cli.command("ml-train")
+    @click.option("--source", type=click.Choice(["synthetic", "historical", "mixed"]), default="synthetic", show_default=True)
+    @click.option("--rows", default=6000, show_default=True, type=int, help="Synthetic rows to generate.")
+    @click.option("--seed", default=42, show_default=True, type=int)
+    @click.option("--activate-best", is_flag=True, help="Activate the selected model after training.")
+    def ml_train(source, rows, seed, activate_best):
+        """Train Linear Regression, Random Forest and Gradient Boosting, compare them, and register the results."""
+        try:
+            versions = ml_service.train_run(source, rows, seed, activate_best)
+        except QueueError as e:
+            raise click.ClickException(e.message)
+        first = versions[0].details
+        split = first["split"]
+        click.echo(f"Data: {source}, {first['rows']} usable rows. Split: {split['n_train']} train / "
+                   f"{split['n_validation']} validation / {split['n_test']} test (chronological).")
+        click.echo(f"{'Model':20s} {'Ver':5s} {'Val MAE':>8s} {'Test MAE':>9s} {'Test RMSE':>10s} {'Test R2':>8s}  Notes")
+        for v in versions:
+            notes = ", ".join(n for n, on in (("SELECTED", v.details["selected_in_run"]), ("ACTIVE", v.is_active),
+                                              ("ineligible", not v.details["eligible"])) if on)
+            click.echo(f"{v.model_name:20s} {v.version:5s} {v.details['validation']['mae']:8.3f} {v.mae:9.3f} {v.rmse:10.3f} {v.r2:8.3f}  {notes}")
+        b = first["baseline"]
+        click.echo(f"{'Baseline (rule)':20s} {'-':5s} {b['validation']['mae']:8.3f} {b['test']['mae']:9.3f} {b['test']['rmse']:10.3f} {b['test']['r2']:8.3f}")
+        click.echo("Metrics are measured on held-out data. Synthetic scores do not describe real-world accuracy.")

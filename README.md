@@ -3,14 +3,15 @@
 **Smarter Queues. Less Waiting.**
 Machine Learning-Based Smart Queue Management and Service Time Prediction System.
 
-> **Status: Phase 4 of 10 (staff and counters).** Foundation, authentication/roles, the backend
-> queue engine and staff counter workflows (open/close, call next, start, complete, skip, absent)
-> with a working staff dashboard exist. ML predictions and the customer/admin screens arrive in later phases.
+> **Status: Phase 5 of 10 (machine learning).** Foundation, authentication/roles, the queue engine,
+> staff counter workflows (with a staff dashboard) and the waiting-time prediction pipeline exist
+> (synthetic data generator, three compared regressors, model registry, prediction API and logging).
+> The customer and admin screens that display all this arrive in later phases.
 > This README documents only commands that exist in the current code.
 
 ## Stack
 React + Vite (frontend) · Flask + SQLAlchemy + Flask-Migrate + JWT + CORS + Limiter (backend) · PostgreSQL.
-No Docker, Redis or other infrastructure. ML libraries are added in Phase 5.
+No Docker, Redis or other infrastructure. ML: pandas, NumPy, scikit-learn, joblib (matplotlib is not used yet).
 
 ## Layout
 ```
@@ -81,6 +82,22 @@ flask assign-staff --email staff@example.com --counter-id 1
 ```
 `seed-counters` creates one CLOSED counter per service ("GEN Counter 1", ...). `assign-staff` links an existing
 STAFF account to a counter. (Admins can also do both through the API below; the admin screens arrive in Phase 7.)
+
+### Machine learning: train, compare, activate
+```
+flask ml-train --activate-best
+```
+Generates 6000 reproducible **synthetic** records, trains Linear Regression, Random Forest and Gradient Boosting on
+the earliest 60% of days, picks the best on the next 20% (validation MAE), and reports MAE / RMSE / R² on the final
+20% of days that no model ever saw, next to a rule-based baseline. Takes about 5 seconds. Options: `--source
+synthetic|historical|mixed`, `--rows`, `--seed`. Model files go to `ML_ARTIFACT_DIR` (git-ignored); the comparison is
+stored in the `model_versions` table. Without `--activate-best`, activate a model through the API below.
+```
+flask ml-generate-data --rows 6000 --seed 42 --out ../data/synthetic_waiting_times.csv
+```
+writes the dataset as CSV (a 300-row sample is committed as `data/sample_synthetic_waiting_times.csv`).
+**Synthetic data is for development and demonstration only; its scores say nothing about real-world accuracy.**
+Full method, assumptions and limitations: [docs/ml-methodology.md](docs/ml-methodology.md).
 
 ### Auth API
 | Method | Path | Access | Notes |
@@ -165,6 +182,27 @@ python scripts/staff_concurrency_check.py --counters 8
 It fires simultaneous call-next requests from many counters (each must get a different ticket) and from several
 staff sharing one counter (exactly one may succeed), then deletes its temporary data.
 
+### Prediction and ML API (Phase 5)
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| POST | `/api/predictions/waiting-time` | logged in | `{"service_id": 2}`. Features come from live database state. STAFF/ADMIN may add `people_ahead`, `queue_length`, `active_counters`, `busy_counters` for a what-if scenario |
+| GET | `/api/ml/models` | ADMIN | All trained versions with held-out metrics |
+| POST | `/api/ml/train` | ADMIN | `{"source", "rows" (500-50000), "seed", "activate_best"}`. 6 per hour |
+| POST | `/api/ml/models/<id>/activate` | ADMIN | Only eligible, loadable models; only one active at a time |
+| GET | `/api/ml/performance` | ADMIN | Accuracy of predictions made by the running system, once real waits are known |
+| GET | `/api/ml/prediction-logs` | ADMIN | Each prediction with its features, the actual wait and the error |
+
+Every response says where a number came from (`source`):
+- `machine_learning` - the active trained model;
+- `fallback` - the documented rule (people ahead / open counters x average service time), used when no model is active
+  or it cannot be loaded (`reason` says which);
+- `unavailable` - no counter is open for that service, so no estimate is given rather than an invented one.
+
+When a customer joins, the prediction is stored on the ticket (`predicted_waiting_time`) and logged with its exact
+features. While the ticket waits, `estimated_wait` is a live estimate that refreshes as the queue changes; the
+original prediction is kept so accuracy is always judged against what was actually promised. When service starts,
+the measured wait is written next to the original prediction. A prediction failure never blocks joining a queue.
+
 Authorization reads the user's role and status from the database on every request (not from the
 token), so role changes and deactivation take effect immediately. Frontend route guards are for
 user experience only; the backend is the authority.
@@ -188,6 +226,14 @@ cd frontend && npm test
 ```
 Backend tests use in-memory SQLite for speed; the real PostgreSQL connection and the migration
 against PostgreSQL are verified manually (`flask db upgrade`, then `/api/health/db`).
+
+## Verifying Phase 5 (manual, on PostgreSQL)
+1. `flask db upgrade` applies the new migration; `pytest` passes.
+2. `flask ml-train --activate-best` prints the three-model comparison and a baseline row, marks one model SELECTED and ACTIVE.
+3. With a counter open (Phase 4 steps), have customers join: each response contains `prediction.source` =
+   `machine_learning` and the model name/version. With the counter closed, `source` is `unavailable` and there is no number.
+4. Staff start service; as admin, `GET /api/ml/prediction-logs?with_actual=true` shows predicted vs actual for that ticket.
+5. Optional: remove the model file from `ML_ARTIFACT_DIR`; joins still work and report `fallback` / `model_unavailable`.
 
 ## Verifying Phase 4 (manual, on PostgreSQL)
 1. `flask db upgrade`, `flask seed-services`, `flask seed-counters` succeed; `flask create-admin` if you have no admin.

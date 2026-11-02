@@ -21,6 +21,7 @@ frontend/dist/
 # ML artifacts & data (regenerate with documented commands)
 backend/app/ml/artifacts/
 data/*.csv
+!data/sample_*.csv
 data/*.parquet
 *.joblib
 *.pkl
