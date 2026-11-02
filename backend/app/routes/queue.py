@@ -2,10 +2,17 @@ from flask import Blueprint, g, jsonify, request
 
 from ..extensions import db, limiter
 from ..models.queue import ACTIVE_STATUSES, TICKET_STATUSES, QueueTicket
-from ..services import queue_service
+from ..services import prediction_service, queue_service
 from ..utils.auth import error, roles_required
 
 queue_bp = Blueprint("queue", __name__)
+
+
+def _with_estimate(ticket):
+    """Serialized ticket plus a live, refreshed estimate while it is still waiting."""
+    data = queue_service.serialize_ticket(ticket)
+    data["estimated_wait"] = prediction_service.live_estimate(ticket)
+    return data
 
 
 @queue_bp.post("/join")
@@ -16,7 +23,10 @@ def join():
     if not isinstance(body, dict):
         return error("validation_error", "Request body must be a JSON object.", 400)
     ticket = queue_service.join_queue(g.current_user, body.get("service_id"))
-    return jsonify(ticket=queue_service.serialize_ticket(ticket)), 201
+    pred = prediction_service.attach_prediction(ticket)  # never blocks joining
+    data = queue_service.serialize_ticket(ticket)
+    data["prediction"] = None if pred is None else pred.to_public()
+    return jsonify(ticket=data), 201
 
 
 @queue_bp.get("/my-active")
@@ -27,7 +37,7 @@ def my_active():
         .order_by(QueueTicket.created_at.desc(), QueueTicket.id.desc())
         .all()
     )
-    return jsonify(tickets=[queue_service.serialize_ticket(t) for t in tickets])
+    return jsonify(tickets=[_with_estimate(t) for t in tickets])
 
 
 @queue_bp.get("/history")
@@ -61,7 +71,7 @@ def get_ticket(ticket_id: int):
     # Customers may only see their own tickets; a foreign ticket is reported as not found.
     if ticket is None or (user.role == "CUSTOMER" and ticket.user_id != user.id):
         return error("ticket_not_found", "Ticket not found.", 404)
-    return jsonify(ticket=queue_service.serialize_ticket(ticket))
+    return jsonify(ticket=_with_estimate(ticket))
 
 
 @queue_bp.post("/tickets/<int:ticket_id>/cancel")

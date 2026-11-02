@@ -1,6 +1,7 @@
 """Configuration classes. All secrets come from environment variables."""
 import os
 from datetime import timedelta
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -25,6 +26,8 @@ class BaseConfig:
     APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "Africa/Nairobi")
     # Ticket numbers restart each local day unless this is set to false.
     QUEUE_RESET_DAILY = os.environ.get("QUEUE_RESET_DAILY", "true").lower() not in ("0", "false", "no")
+    # Trained model files (git-ignored; regenerate with `flask ml-train`).
+    ML_ARTIFACT_DIR = os.environ.get("ML_ARTIFACT_DIR") or str(Path(_here) / "ml" / "artifacts")
     JSON_SORT_KEYS = False
     TESTING = False
 

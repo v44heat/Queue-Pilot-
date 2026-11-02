@@ -16,13 +16,25 @@ def fast_password_hashing(monkeypatch):
 
 
 @pytest.fixture()
-def app():
-    app = create_app("testing")
+def app(tmp_path):
+    app = create_app("testing", overrides={"ML_ARTIFACT_DIR": str(tmp_path / "artifacts")})
     with app.app_context():
         db.create_all()
         yield app
         db.session.remove()
         db.drop_all()
+        from app.services import ml_service
+
+        ml_service.clear_model_cache()
+
+
+@pytest.fixture()
+def fast_models(monkeypatch):
+    """Smaller ensembles so ML tests run quickly (same code path, fewer trees)."""
+    from app.ml import training
+
+    monkeypatch.setitem(training.RF_PARAMS, "n_estimators", 20)
+    monkeypatch.setitem(training.GB_PARAMS, "n_estimators", 40)
 
 
 @pytest.fixture()

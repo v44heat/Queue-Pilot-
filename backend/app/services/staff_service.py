@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models.counter import Counter, StaffCounterAssignment
 from ..models.queue import QueueTicket
+from . import prediction_service
 from .counter_service import current_ticket
 from .queue_service import QueueError, transition
 
@@ -161,6 +162,7 @@ def start_service(staff, ticket_id: int) -> QueueTicket:
     def stamp(t, now):
         t.service_start_time = now
         t.actual_waiting_time = minutes_between(t.join_time, now)  # service_start_time - join_time
+        prediction_service.record_actual(t)  # store the measured wait next to the original prediction
     return _apply(staff, ticket_id, "SERVING", stamp)
 
 
