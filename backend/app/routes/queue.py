@@ -2,7 +2,7 @@ from flask import Blueprint, g, jsonify, request
 
 from ..extensions import db, limiter
 from ..models.queue import ACTIVE_STATUSES, TICKET_STATUSES, QueueTicket
-from ..services import prediction_service, queue_service
+from ..services import notification_service, prediction_service, queue_service
 from ..utils.auth import error, roles_required
 
 queue_bp = Blueprint("queue", __name__)
@@ -12,6 +12,9 @@ def _with_estimate(ticket):
     """Serialized ticket plus a live, refreshed estimate while it is still waiting."""
     data = queue_service.serialize_ticket(ticket)
     data["estimated_wait"] = prediction_service.live_estimate(ticket)
+    # Only the owner's own refresh can trigger a "waiting time changed" notification (staff views are read-only).
+    if g.current_user.id == ticket.user_id:
+        notification_service.maybe_notify_wait_change(ticket, data["estimated_wait"])
     return data
 
 
@@ -24,6 +27,7 @@ def join():
         return error("validation_error", "Request body must be a JSON object.", 400)
     ticket = queue_service.join_queue(g.current_user, body.get("service_id"))
     pred = prediction_service.attach_prediction(ticket)  # never blocks joining
+    notification_service.notify_joined(ticket, pred)  # never blocks joining
     data = queue_service.serialize_ticket(ticket)
     data["prediction"] = None if pred is None else pred.to_public()
     return jsonify(ticket=data), 201
@@ -78,4 +82,6 @@ def get_ticket(ticket_id: int):
 @roles_required("CUSTOMER")
 def cancel(ticket_id: int):
     ticket = queue_service.cancel_ticket(g.current_user, ticket_id)
+    notification_service.notify_cancelled(ticket)
+    notification_service.check_service_queue(ticket.service_id)  # people behind moved up
     return jsonify(ticket=queue_service.serialize_ticket(ticket))

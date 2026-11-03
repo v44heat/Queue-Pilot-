@@ -51,6 +51,8 @@ class QueueTicket(db.Model):
     predicted_waiting_time = db.Column(db.Float)
     actual_waiting_time = db.Column(db.Float)
     service_duration = db.Column(db.Float)
+    # The estimate the customer was last told (join-time prediction, then significant updates); minutes.
+    notified_wait_estimate = db.Column(db.Float)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     service = db.relationship("Service")

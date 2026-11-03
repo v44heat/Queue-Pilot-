@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models.counter import Counter, StaffCounterAssignment
 from ..models.queue import QueueTicket
-from . import prediction_service
+from . import notification_service, prediction_service
 from .counter_service import current_ticket
 from .queue_service import QueueError, transition
 
@@ -140,6 +140,9 @@ def call_next(staff, counter_id: int) -> QueueTicket:
             raise QueueError("counter_busy", "This counter already has a customer.", 409)
         if result.rowcount == 1:
             current_app.logger.info("Counter id=%s called ticket id=%s (staff id=%s)", cid, ids[0], staff.id)
+            ticket = db.session.get(QueueTicket, ids[0], populate_existing=True)
+            notification_service.notify_called(ticket)  # never blocks calling
+            notification_service.check_service_queue(service_id)  # people behind moved up
             return db.session.get(QueueTicket, ids[0], populate_existing=True)
         db.session.rollback()  # someone else took it first; look at the next in line
     raise QueueError("queue_busy", "The queue is busy. Please try again.", 503)
@@ -148,6 +151,7 @@ def call_next(staff, counter_id: int) -> QueueTicket:
 # ---- ticket actions --------------------------------------------------------------------------
 def _apply(staff, ticket_id: int, new_status: str, stamp) -> QueueTicket:
     ticket = _locked_ticket_for(staff, ticket_id)
+    was_waiting = ticket.status == "WAITING"
     try:
         transition(ticket, new_status)
     except QueueError:
@@ -155,6 +159,7 @@ def _apply(staff, ticket_id: int, new_status: str, stamp) -> QueueTicket:
         raise
     stamp(ticket, _now())
     db.session.commit()
+    notification_service.after_transition(ticket, new_status, was_waiting)  # never blocks the action
     return ticket
 
 

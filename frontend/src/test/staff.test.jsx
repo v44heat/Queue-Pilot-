@@ -3,14 +3,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import App from '../App.jsx'
 import * as api from '../services/api.js'
+import { customerDefaults } from './mockApi.js'
 
-vi.mock('../services/api.js', () => ({
-  getHealth: vi.fn(), getDbHealth: vi.fn(), loginRequest: vi.fn(), registerRequest: vi.fn(),
-  logoutRequest: vi.fn(), getMe: vi.fn(), listUsers: vi.fn(), createUser: vi.fn(), updateUser: vi.fn(),
-  getStaffCounters: vi.fn(), getCounterQueue: vi.fn(), openCounter: vi.fn(), closeCounter: vi.fn(),
-  callNext: vi.fn(), ticketAction: vi.fn(),
-  default: {},
-}))
+vi.mock('../services/api.js', async () => (await import('./mockApi.js')).apiMock())
 
 const staff = { id: 5, name: 'Sam Staff', email: 's@example.com', role: 'STAFF', status: 'ACTIVE' }
 const service = { id: 1, name: 'General Enquiry', prefix: 'GEN' }
@@ -28,6 +23,7 @@ const waitingRow = { id: 11, queue_number: 'GEN-002', customer: { name: 'Bob Wai
 beforeEach(() => {
   localStorage.setItem('qp_token', 'tok')
   vi.clearAllMocks()
+  customerDefaults(api)
   api.getMe.mockResolvedValue({ user: staff })
   api.getStaffCounters.mockResolvedValue({ counters: [{ id: 1, name: 'Counter 1' }] })
 })

@@ -87,3 +87,68 @@ a { color: var(--qp-primary); }
 .qp-stats span { color: var(--qp-muted); font-size: .8rem; }
 .qp-current { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; }
 .qp-bignumber { font-size: 2rem; font-weight: 800; letter-spacing: .03em; }
+
+/* ---- Phase 6: customer experience ---- */
+.qp-linkbtn { text-decoration: none; display: inline-flex; width: fit-content; }
+.qp-small { font-size: .8rem; }
+.qp-check { display: inline-flex; gap: .35rem; align-items: center; font-size: .9rem; }
+.qp-card__header select { font: inherit; padding: .4rem .6rem; border: 1px solid var(--qp-border); border-radius: 8px; }
+
+.qp-ticket-list, .qp-ticket-page { display: grid; gap: 1rem; max-width: 520px; }
+.qp-ticket { background: var(--qp-surface); border: 1px solid var(--qp-border); border-top: 6px solid var(--qp-primary); border-radius: var(--qp-radius); padding: 1.25rem; }
+.qp-ticket--called { border-top-color: var(--qp-ok); }
+.qp-ticket--serving { border-top-color: var(--qp-ok); }
+.qp-ticket--cancelled, .qp-ticket--skipped, .qp-ticket--absent { border-top-color: var(--qp-muted); opacity: .85; }
+.qp-ticket__label, .qp-ticket__grid dt { font-size: .7rem; letter-spacing: .08em; color: var(--qp-muted); font-weight: 700; }
+.qp-ticket__number { font-size: 2.6rem; font-weight: 800; letter-spacing: .04em; line-height: 1.15; }
+.qp-ticket__number a { color: inherit; text-decoration: none; }
+.qp-ticket__grid { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem 1rem; margin: 1rem 0; }
+.qp-ticket__grid dd { margin: .15rem 0 0; font-size: 1.15rem; font-weight: 600; }
+.qp-ticket__wide { grid-column: 1 / -1; }
+.qp-ticket__wide dd { font-size: 1.6rem; }
+.qp-ticket__wide small { color: var(--qp-muted); }
+
+.qp-steps { list-style: none; display: flex; justify-content: space-between; padding: 0; margin: 1rem 0 0; font-size: .75rem; color: var(--qp-muted); }
+.qp-steps li { display: grid; justify-items: center; gap: .3rem; flex: 1; }
+.qp-steps__dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--qp-border); font-weight: 700; }
+.qp-steps .is-done .qp-steps__dot { background: var(--qp-ok); color: #fff; }
+.qp-steps .is-current { color: var(--qp-text); font-weight: 700; }
+.qp-steps .is-current .qp-steps__dot { background: var(--qp-primary); color: #fff; }
+
+.qp-status--waiting { color: #92400e; background: #fef3c7; }
+.qp-status--called, .qp-status--serving, .qp-status--completed { color: var(--qp-ok); background: #dcfce7; }
+.qp-status--cancelled, .qp-status--skipped, .qp-status--absent { color: #475569; background: #e2e8f0; }
+.qp-note { padding: .7rem .9rem; border-radius: 8px; background: #e0f2fe; color: #075985; font-size: .9rem; }
+.qp-note--cancelled, .qp-note--skipped, .qp-note--absent { background: #f1f5f9; color: #334155; }
+.qp-note--completed { background: #dcfce7; color: #166534; }
+
+.qp-service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.qp-service .qp-card__body { display: grid; gap: .8rem; }
+.qp-facts { list-style: none; padding: 0; margin: 0; display: grid; gap: .25rem; font-size: .9rem; }
+.qp-simple-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; }
+.qp-simple-list li { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+
+.qp-notes { list-style: none; padding: 0; margin: 0; display: grid; }
+.qp-notes li { display: flex; justify-content: space-between; gap: 1rem; padding: .9rem .25rem; border-bottom: 1px solid var(--qp-border); flex-wrap: wrap; }
+.qp-notes p { margin: .25rem 0; }
+.qp-notes .is-unread { background: #eff6ff; border-radius: 8px; padding-left: .75rem; }
+.qp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--qp-primary); margin-left: .5rem; }
+.qp-count { margin-left: auto; background: var(--qp-error); color: #fff; border-radius: 999px; min-width: 20px; padding: 0 .4rem; text-align: center; font-size: .75rem; font-weight: 700; }
+.qp-profile { display: grid; gap: .5rem; margin: 0 0 1.25rem; }
+.qp-profile div { display: flex; gap: .75rem; } .qp-profile dt { width: 110px; color: var(--qp-muted); } .qp-profile dd { margin: 0; }
+
+.qp-toasts { position: fixed; right: 1rem; bottom: 1rem; display: grid; gap: .5rem; z-index: 60; max-width: min(360px, calc(100vw - 2rem)); }
+.qp-toast { padding: .7rem 1rem; border-radius: 10px; color: #fff; background: #1e293b; box-shadow: 0 6px 20px rgba(0,0,0,.2); font-size: .9rem; }
+.qp-toast--success { background: #15803d; } .qp-toast--error { background: #b91c1c; }
+.qp-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: grid; place-items: center; z-index: 50; padding: 1rem; }
+.qp-dialog { background: #fff; border-radius: var(--qp-radius); padding: 1.5rem; max-width: 420px; width: 100%; }
+.qp-dialog h2 { margin: 0 0 .5rem; font-size: 1.15rem; }
+
+@media (max-width: 720px) {
+  .qp-sidebar nav { display: flex; overflow-x: auto; gap: .25rem; }
+  .qp-nav { white-space: nowrap; }
+  .qp-userbox { margin-top: .5rem; padding-top: .5rem; }
+  .qp-ticket__number { font-size: 2.2rem; }
+  .qp-notes li { flex-direction: column; }
+  .qp-actions .qp-btn { padding: .7rem 1rem; }
+}

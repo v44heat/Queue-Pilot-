@@ -106,6 +106,7 @@ def attach_prediction(ticket: QueueTicket) -> Prediction | None:
         pred = predict(build_features(ticket.service, ahead, length))
         if pred.minutes is not None:
             ticket.predicted_waiting_time = pred.minutes
+            ticket.notified_wait_estimate = pred.minutes
             db.session.add(PredictionLog(
                 queue_ticket_id=ticket.id, model_version_id=pred.model_version_id,
                 source=pred.source, prediction=pred.minutes, features=pred.features))
