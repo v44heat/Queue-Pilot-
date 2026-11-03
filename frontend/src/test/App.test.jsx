@@ -3,22 +3,13 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import App from '../App.jsx'
 import * as api from '../services/api.js'
+import { customerDefaults } from './mockApi.js'
 
-vi.mock('../services/api.js', () => ({
-  getHealth: vi.fn(),
-  getDbHealth: vi.fn(),
-  loginRequest: vi.fn(),
-  registerRequest: vi.fn(),
-  logoutRequest: vi.fn(),
-  getMe: vi.fn(),
-  listUsers: vi.fn(),
-  createUser: vi.fn(),
-  updateUser: vi.fn(),
-  default: {},
-}))
+vi.mock('../services/api.js', async () => (await import('./mockApi.js')).apiMock())
 
 beforeEach(() => {
   localStorage.clear()
+  customerDefaults(api)
   api.getHealth.mockResolvedValue({ status: 'ok' })
   api.getDbHealth.mockRejectedValue(new Error('down'))
 })

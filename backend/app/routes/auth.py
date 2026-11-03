@@ -8,7 +8,7 @@ from ..extensions import db, limiter
 from ..models.user import TokenBlocklist, User
 from ..utils.auth import error, roles_required
 from ..utils.security import burn_password_check
-from ..utils.validation import validate_new_user
+from ..utils.validation import check_password_policy, validate_new_user, validate_user_update
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -75,3 +75,43 @@ def logout():
 @roles_required()
 def me():
     return jsonify(user=g.current_user.to_dict())
+
+
+@auth_bp.patch("/me")
+@roles_required()
+def update_profile():
+    """Users may change only their own name and phone here (never role, status or email)."""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return error("validation_error", "Request body must be a JSON object.", 400)
+    clean, errors = validate_user_update({k: body[k] for k in ("name", "phone") if k in body})
+    if errors:
+        return error("validation_error", "Please correct the highlighted fields.", 400, errors)
+    for field, value in clean.items():
+        setattr(g.current_user, field, value)
+    db.session.commit()
+    return jsonify(user=g.current_user.to_dict())
+
+
+@auth_bp.post("/change-password")
+@roles_required()
+@limiter.limit("5 per minute")
+def change_password():
+    body = request.get_json(silent=True)
+    body = body if isinstance(body, dict) else {}
+    current, new = body.get("current_password"), body.get("new_password")
+    if not isinstance(current, str) or not current:
+        return error("validation_error", "Enter your current password.", 400, {"current_password": "Required."})
+    # 400 (not 401) so a mistyped current password does not look like an expired session to the client.
+    if not g.current_user.check_password(current):
+        return error("incorrect_password", "Your current password is incorrect.", 400, {"current_password": "Incorrect password."})
+    problem = check_password_policy(new)
+    if problem:
+        return error("validation_error", problem, 400, {"new_password": problem})
+    if new == current:
+        return error("validation_error", "Choose a password different from the current one.", 400,
+                     {"new_password": "Must differ from the current password."})
+    g.current_user.set_password(new)
+    db.session.commit()
+    current_app.logger.info("Password changed for user id=%s", g.current_user.id)
+    return jsonify(message="Password updated.")

@@ -48,4 +48,23 @@ export const callNext = (id) => api.post(`/api/staff/counters/${id}/call-next`).
 // action: 'start' | 'complete' | 'skip' | 'absent'
 export const ticketAction = (ticketId, action) => api.post(`/api/staff/tickets/${ticketId}/${action}`).then(data)
 
+// ---- customer ----
+export const getServices = () => api.get('/api/services').then(data)
+export const joinQueue = (serviceId) => api.post('/api/queue/join', { service_id: serviceId }).then(data)
+export const getMyActive = () => api.get('/api/queue/my-active').then(data)
+export const getTicket = (id) => api.get(`/api/queue/tickets/${id}`).then(data)
+export const cancelTicket = (id) => api.post(`/api/queue/tickets/${id}/cancel`).then(data)
+export const getHistory = (params) => api.get('/api/queue/history', { params }).then(data)
+
+// ---- notifications ----
+export const getNotifications = (params) => api.get('/api/notifications', { params }).then(data)
+export const getUnreadCount = () => api.get('/api/notifications/unread-count').then(data)
+export const markNotificationRead = (id) => api.post(`/api/notifications/${id}/read`).then(data)
+export const markAllNotificationsRead = () => api.post('/api/notifications/read-all').then(data)
+
+// ---- profile ----
+export const updateProfile = (payload) => api.patch('/api/auth/me', payload).then(data)
+export const changePassword = (current_password, new_password) =>
+  api.post('/api/auth/change-password', { current_password, new_password }).then(data)
+
 export default api

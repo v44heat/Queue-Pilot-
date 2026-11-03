@@ -1,10 +1,16 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Gauge, Home as HomeIcon, LogIn, LogOut, UserPlus, Users, LayoutDashboard } from 'lucide-react'
+import {
+  Bell, Clock, Gauge, Home as HomeIcon, LayoutDashboard, LogIn, LogOut, Ticket, User, UserPlus, Users,
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useNotifications } from '../context/NotificationContext.jsx'
 import { roleHome } from '../utils/roles.js'
+
+const icon = (Cmp) => <Cmp size={18} aria-hidden="true" />
 
 export default function AppLayout() {
   const { user, logout } = useAuth()
+  const { unread } = useNotifications()
   const navigate = useNavigate()
 
   const onLogout = async () => {
@@ -23,28 +29,31 @@ export default function AppLayout() {
           </div>
         </div>
         <nav>
-          <NavLink to="/" end className="qp-nav"><HomeIcon size={18} aria-hidden="true" /> Home</NavLink>
+          <NavLink to="/" end className="qp-nav">{icon(HomeIcon)} Home</NavLink>
           {!user && (
             <>
-              <NavLink to="/login" className="qp-nav"><LogIn size={18} aria-hidden="true" /> Log in</NavLink>
-              <NavLink to="/register" className="qp-nav"><UserPlus size={18} aria-hidden="true" /> Register</NavLink>
+              <NavLink to="/login" className="qp-nav">{icon(LogIn)} Log in</NavLink>
+              <NavLink to="/register" className="qp-nav">{icon(UserPlus)} Register</NavLink>
             </>
           )}
-          {user && (
-            <NavLink to={roleHome(user.role)} end className="qp-nav">
-              <LayoutDashboard size={18} aria-hidden="true" /> Dashboard
-            </NavLink>
+          {user && <NavLink to={roleHome(user.role)} end className="qp-nav">{icon(LayoutDashboard)} Dashboard</NavLink>}
+          {user?.role === 'CUSTOMER' && (
+            <>
+              <NavLink to="/customer/services" className="qp-nav">{icon(Ticket)} Services</NavLink>
+              <NavLink to="/customer/history" className="qp-nav">{icon(Clock)} History</NavLink>
+              <NavLink to="/customer/notifications" className="qp-nav">
+                {icon(Bell)} Notifications
+                {unread > 0 && <span className="qp-count" aria-label={`${unread} unread notifications`}>{unread}</span>}
+              </NavLink>
+              <NavLink to="/customer/profile" className="qp-nav">{icon(User)} Profile</NavLink>
+            </>
           )}
-          {user?.role === 'ADMIN' && (
-            <NavLink to="/admin/users" className="qp-nav"><Users size={18} aria-hidden="true" /> Users</NavLink>
-          )}
+          {user?.role === 'ADMIN' && <NavLink to="/admin/users" className="qp-nav">{icon(Users)} Users</NavLink>}
         </nav>
         {user && (
           <div className="qp-userbox">
             <div><strong>{user.name}</strong><small>{user.role}</small></div>
-            <button className="qp-nav qp-nav--button" onClick={onLogout}>
-              <LogOut size={18} aria-hidden="true" /> Log out
-            </button>
+            <button className="qp-nav qp-nav--button" onClick={onLogout}>{icon(LogOut)} Log out</button>
           </div>
         )}
       </aside>

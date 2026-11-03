@@ -43,6 +43,7 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     from .routes.counters import counters_bp
     from .routes.health import health_bp
     from .routes.ml import ml_bp
+    from .routes.notifications import notifications_bp
     from .routes.predictions import predictions_bp
     from .routes.queue import queue_bp
     from .routes.services import services_bp
@@ -61,6 +62,7 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     app.register_blueprint(staff_bp, url_prefix="/api/staff")
     app.register_blueprint(predictions_bp, url_prefix="/api/predictions")
     app.register_blueprint(ml_bp, url_prefix="/api/ml")
+    app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
 
     @app.errorhandler(QueueError)
     def handle_queue_error(e):

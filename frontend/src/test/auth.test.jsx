@@ -3,19 +3,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import App from '../App.jsx'
 import * as api from '../services/api.js'
+import { customerDefaults } from './mockApi.js'
 
-vi.mock('../services/api.js', () => ({
-  getHealth: vi.fn(),
-  getDbHealth: vi.fn(),
-  loginRequest: vi.fn(),
-  registerRequest: vi.fn(),
-  logoutRequest: vi.fn(),
-  getMe: vi.fn(),
-  listUsers: vi.fn(),
-  createUser: vi.fn(),
-  updateUser: vi.fn(),
-  default: {},
-}))
+vi.mock('../services/api.js', async () => (await import('./mockApi.js')).apiMock())
 
 const customer = { id: 2, name: 'Jane Customer', email: 'jane@example.com', role: 'CUSTOMER', status: 'ACTIVE' }
 const admin = { id: 1, name: 'Root Admin', email: 'root@example.com', role: 'ADMIN', status: 'ACTIVE' }
@@ -23,6 +13,7 @@ const admin = { id: 1, name: 'Root Admin', email: 'root@example.com', role: 'ADM
 beforeEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
+  customerDefaults(api)
   api.listUsers.mockResolvedValue({ users: [admin, customer], total: 2, pages: 1, page: 1 })
 })
 
@@ -63,7 +54,7 @@ test('login stores token and lands on the role dashboard', async () => {
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'jane@example.com' } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Passw0rd!x' } })
   fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
-  expect(await screen.findByText('Customer dashboard')).toBeInTheDocument()
+  expect(await screen.findByText('Hello, Jane')).toBeInTheDocument() // the real customer dashboard
   expect(api.loginRequest).toHaveBeenCalledWith('jane@example.com', 'Passw0rd!x')
   expect(localStorage.getItem('qp_token')).toBe('abc')
 })

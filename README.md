@@ -3,10 +3,10 @@
 **Smarter Queues. Less Waiting.**
 Machine Learning-Based Smart Queue Management and Service Time Prediction System.
 
-> **Status: Phase 5 of 10 (machine learning).** Foundation, authentication/roles, the queue engine,
-> staff counter workflows (with a staff dashboard) and the waiting-time prediction pipeline exist
-> (synthetic data generator, three compared regressors, model registry, prediction API and logging).
-> The customer and admin screens that display all this arrive in later phases.
+> **Status: Phase 6 of 10 (customer experience).** Foundation, authentication/roles, the queue engine,
+> staff workflows, the waiting-time prediction pipeline and the complete customer application exist:
+> services, joining a queue, a live digital ticket, history, in-app notifications and a profile page.
+> The admin screens, analytics and counter recommendations arrive in later phases.
 > This README documents only commands that exist in the current code.
 
 ## Stack
@@ -203,6 +203,30 @@ features. While the ticket waits, `estimated_wait` is a live estimate that refre
 original prediction is kept so accuracy is always judged against what was actually promised. When service starts,
 the measured wait is written next to the original prediction. A prediction failure never blocks joining a queue.
 
+### Notifications and profile API (Phase 6)
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| GET | `/api/notifications` | logged in | Own notifications, newest first. `unread_only=true`, `page`, `per_page`; includes `unread` |
+| GET | `/api/notifications/unread-count` | logged in | `{"unread": n}` |
+| POST | `/api/notifications/<id>/read` | owner | Someone else's notification returns 404 |
+| POST | `/api/notifications/read-all` | logged in | |
+| PATCH | `/api/auth/me` | logged in | Only `name` and `phone`; role, status and email cannot be changed here |
+| POST | `/api/auth/change-password` | logged in | `{"current_password", "new_password"}`; a wrong current password is a 400 (not 401) |
+
+**Notification rules** (stored in the database; no email/SMS provider needed)
+
+| Type | When | Sent |
+|---|---|---|
+| `QUEUE_JOINED` | ticket issued; includes people ahead and the estimate if one exists | once |
+| `CALLED` | staff call the ticket; names the counter (this is also the counter assignment) | once |
+| `TURN_APPROACHING` | at most 2 people ahead (`NOTIFY_APPROACHING_AHEAD`), checked whenever someone ahead leaves the line | once per ticket |
+| `WAIT_TIME_CHANGED` | the live estimate differs from the last one told by >= 10 minutes AND >= 25%; checked when the customer's own ticket refreshes | repeatable |
+| `CANCELLED` / `SKIPPED` / `ABSENT` | ticket leaves the line without being served | once |
+
+"Once" is enforced by a unique key in the database, so it also holds when two requests race. A notification
+failure is logged and never blocks joining, calling or cancelling. Thresholds are constants in
+`services/notification_service.py` (an admin settings screen arrives in Phase 7).
+
 Authorization reads the user's role and status from the database on every request (not from the
 token), so role changes and deactivation take effect immediately. Frontend route guards are for
 user experience only; the backend is the authority.
@@ -219,6 +243,21 @@ npm run dev
 Runs at http://localhost:5173 and proxies `/api` to the backend. Optionally set
 `VITE_API_BASE_URL` (see `frontend/.env.example`).
 
+### Customer screens (log in as a CUSTOMER)
+| Page | Path | What it does |
+|---|---|---|
+| Dashboard | `/customer` | Your active tickets (live) and recent history |
+| Services | `/customer/services` | Real waiting counts and open counters; **Join Queue** |
+| Ticket | `/customer/tickets/<id>` | Digital ticket: number, service, people ahead, estimated wait, status, progress; cancel with confirmation |
+| History | `/customer/history` | All your tickets with predicted vs actual wait; status filter, paging |
+| Notifications | `/customer/notifications` | Inbox, mark read / all read, unread filter; sidebar badge |
+| Profile | `/customer/profile` | Edit name and phone, change password |
+
+Active tickets refresh every 10 seconds and polling stops once a ticket is finished; the notification badge refreshes
+every 15 seconds (a toast announces new arrivals). The estimate shows its source: prediction model, basic estimate
+(model not active), or "not available" when no counter is open. The layout is responsive (the sidebar becomes a
+scrollable top bar on phones) but has not been checked on a physical device.
+
 ## 5. Tests
 ```
 cd backend && pytest
@@ -226,6 +265,20 @@ cd frontend && npm test
 ```
 Backend tests use in-memory SQLite for speed; the real PostgreSQL connection and the migration
 against PostgreSQL are verified manually (`flask db upgrade`, then `/api/health/db`).
+
+## Verifying Phase 6 (manual, on PostgreSQL)
+1. `flask db upgrade`, then `pytest` and `npm test` pass. Have a trained, active model (`flask ml-train --activate-best`),
+   a counter with an assigned staff member (Phase 4 steps), and open the counter from the staff dashboard.
+2. Register two customers in two browsers (or one normal and one private window). Customer A: **Services -> Join Queue**.
+   The ticket page shows the number, people ahead, estimated wait (with its source) and progress. The **Notifications**
+   badge shows 1 and the inbox has "You're in the queue".
+3. Customer B joins too. As staff: **Call next customer**. Customer A's ticket changes to "Called" within about 10 seconds
+   without refreshing, a toast appears, and the inbox has "It's your turn" naming the counter.
+4. Staff **Start service** then **Complete service**. Customer A's ticket shows "Completed" with the real waited time and
+   polling stops; **History** shows predicted vs actual.
+5. Customer B: **Cancel ticket** shows a confirmation dialog; confirming cancels and creates a notification.
+6. Profile: change the name (sidebar updates) and the password (old password no longer logs in).
+7. Resize the window below 720 px (or use a phone) and check the ticket page and navigation.
 
 ## Verifying Phase 5 (manual, on PostgreSQL)
 1. `flask db upgrade` applies the new migration; `pytest` passes.
