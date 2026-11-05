@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  Bell, Clock, Gauge, Home as HomeIcon, LayoutDashboard, LogIn, LogOut, Ticket, User, UserPlus, Users,
+  Activity, Bell, BrainCircuit, Clock, Cpu, Gauge, Home as HomeIcon, LayoutDashboard, Layers, LogIn, LogOut, Monitor,
+  Settings, Ticket, User, UserPlus, Users,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useNotifications } from '../context/NotificationContext.jsx'
@@ -48,7 +49,17 @@ export default function AppLayout() {
               <NavLink to="/customer/profile" className="qp-nav">{icon(User)} Profile</NavLink>
             </>
           )}
-          {user?.role === 'ADMIN' && <NavLink to="/admin/users" className="qp-nav">{icon(Users)} Users</NavLink>}
+          {user?.role === 'ADMIN' && (
+            <>
+              <NavLink to="/admin/queue" className="qp-nav">{icon(Activity)} Live queue</NavLink>
+              <NavLink to="/admin/services" className="qp-nav">{icon(Layers)} Services</NavLink>
+              <NavLink to="/admin/counters" className="qp-nav">{icon(Monitor)} Counters</NavLink>
+              <NavLink to="/admin/users" className="qp-nav">{icon(Users)} Users</NavLink>
+              <NavLink to="/admin/ml" end className="qp-nav">{icon(BrainCircuit)} ML models</NavLink>
+              <NavLink to="/admin/ml/training" className="qp-nav">{icon(Cpu)} ML training</NavLink>
+              <NavLink to="/admin/settings" className="qp-nav">{icon(Settings)} Settings</NavLink>
+            </>
+          )}
         </nav>
         {user && (
           <div className="qp-userbox">

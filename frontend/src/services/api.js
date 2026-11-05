@@ -67,4 +67,25 @@ export const updateProfile = (payload) => api.patch('/api/auth/me', payload).the
 export const changePassword = (current_password, new_password) =>
   api.post('/api/auth/change-password', { current_password, new_password }).then(data)
 
+// ---- admin ----
+export const getAdminDashboard = () => api.get('/api/admin/dashboard').then(data)
+export const getAdminQueue = (params) => api.get('/api/admin/queue', { params }).then(data)
+export const adminListServices = () => api.get('/api/admin/services').then(data)
+export const adminCreateService = (payload) => api.post('/api/admin/services', payload).then(data)
+export const adminUpdateService = (id, payload) => api.patch(`/api/admin/services/${id}`, payload).then(data)
+export const adminListCounters = () => api.get('/api/counters').then(data)
+export const adminCreateCounter = (payload) => api.post('/api/counters', payload).then(data)
+export const adminUpdateCounter = (id, payload) => api.patch(`/api/counters/${id}`, payload).then(data)
+export const adminAssignStaff = (counterId, staffId) => api.post(`/api/counters/${counterId}/staff`, { staff_id: staffId }).then(data)
+export const adminUnassignStaff = (counterId, staffId) => api.delete(`/api/counters/${counterId}/staff/${staffId}`).then(data)
+export const getSettings = () => api.get('/api/settings').then(data)
+export const updateSettings = (settings) => api.patch('/api/settings', { settings }).then(data)
+
+// ---- machine learning (admin) ----
+export const mlListModels = () => api.get('/api/ml/models').then(data)
+export const mlTrain = (payload) => api.post('/api/ml/train', payload, { timeout: 180000 }).then(data)
+export const mlActivate = (id) => api.post(`/api/ml/models/${id}/activate`).then(data)
+export const mlPerformance = () => api.get('/api/ml/performance').then(data)
+export const mlPredictionLogs = (params) => api.get('/api/ml/prediction-logs', { params }).then(data)
+
 export default api

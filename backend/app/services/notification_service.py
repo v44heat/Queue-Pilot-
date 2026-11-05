@@ -1,12 +1,13 @@
 """Customer notifications.
 
-Rules (all thresholds can be overridden in app config):
+Rules (thresholds are administrator-editable system settings):
 * QUEUE_JOINED       - once, when a ticket is issued.
 * CALLED             - once, when staff call the ticket; names the counter (this is also the counter assignment).
-* TURN_APPROACHING   - once per ticket, when at most NOTIFY_APPROACHING_AHEAD (default 2) people are ahead.
+* TURN_APPROACHING   - once per ticket, when at most `notifications.approaching_ahead` (default 2) people are ahead.
                        Checked whenever someone ahead leaves the line (called, cancelled, skipped).
 * WAIT_TIME_CHANGED  - when the live estimate differs from the last one the customer was told by at least
-                       10 minutes AND at least 25% (of the previous estimate, minimum base 1 minute). Checked when
+                       `notifications.wait_change_minutes` (default 10) AND at least `notifications.wait_change_ratio`
+                       (default 25%) of the previous estimate (minimum base 1 minute). Checked when
                        the customer's ticket is refreshed, so it follows the same polling the app already does.
 * CANCELLED / SKIPPED / ABSENT - once, when the ticket leaves the line without being served.
 
@@ -18,11 +19,8 @@ from sqlalchemy.exc import IntegrityError
 from ..extensions import db
 from ..models.notification import Notification
 from ..models.queue import QueueTicket
+from . import settings_service
 from .queue_service import people_ahead
-
-APPROACHING_AHEAD = 2
-WAIT_CHANGE_MIN_MINUTES = 10.0
-WAIT_CHANGE_MIN_RATIO = 0.25
 
 
 def _send(user_id: int, ticket: QueueTicket | None, type_: str, title: str, message: str, once: bool = True) -> bool:
@@ -96,7 +94,7 @@ def after_transition(ticket: QueueTicket, new_status: str, was_waiting: bool) ->
 def check_service_queue(service_id: int) -> None:
     """Tell customers near the front that their turn is approaching (once each)."""
     try:
-        limit = int(current_app.config.get("NOTIFY_APPROACHING_AHEAD", APPROACHING_AHEAD))
+        limit = int(settings_service.get("notifications.approaching_ahead"))
         front = (
             QueueTicket.query.filter(QueueTicket.service_id == service_id, QueueTicket.status == "WAITING")
             .order_by(QueueTicket.queue_date, QueueTicket.sequence).limit(limit + 1).all()
@@ -110,9 +108,11 @@ def check_service_queue(service_id: int) -> None:
         current_app.logger.exception("check_service_queue failed")
 
 
-def is_significant_change(old: float, new: float) -> bool:
+def is_significant_change(old: float, new: float, min_minutes: float | None = None, min_ratio: float | None = None) -> bool:
+    min_minutes = settings_service.get("notifications.wait_change_minutes") if min_minutes is None else min_minutes
+    min_ratio = settings_service.get("notifications.wait_change_ratio") if min_ratio is None else min_ratio
     diff = abs(new - old)
-    return diff >= WAIT_CHANGE_MIN_MINUTES and diff / max(old, 1.0) >= WAIT_CHANGE_MIN_RATIO
+    return diff >= min_minutes and diff / max(old, 1.0) >= min_ratio
 
 
 def maybe_notify_wait_change(ticket: QueueTicket, estimate: dict | None) -> None:

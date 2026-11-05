@@ -10,6 +10,8 @@ from ..utils.validation import validate_new_user, validate_user_update
 
 users_bp = Blueprint("users", __name__)
 
+USER_SORTS = {"name": User.name, "email": User.email, "role": User.role, "status": User.status, "created": User.created_at}
+
 
 @users_bp.get("")
 @roles_required("ADMIN")
@@ -32,8 +34,17 @@ def list_users():
     except ValueError:
         return error("validation_error", "page and per_page must be integers.", 400)
 
+    sort_key = request.args.get("sort", "created")
+    if sort_key not in USER_SORTS:
+        return error("validation_error", f"sort must be one of {', '.join(USER_SORTS)}.", 400)
+    order = request.args.get("order", "desc").lower()
+    if order not in ("asc", "desc"):
+        return error("validation_error", "order must be asc or desc.", 400)
+    column = USER_SORTS[sort_key]
+    primary = column.asc() if order == "asc" else column.desc()
+
     total = q.count()
-    items = q.order_by(User.created_at.desc(), User.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    items = q.order_by(primary, User.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     return jsonify(
         users=[u.to_dict() for u in items],
         page=page,

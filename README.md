@@ -3,10 +3,10 @@
 **Smarter Queues. Less Waiting.**
 Machine Learning-Based Smart Queue Management and Service Time Prediction System.
 
-> **Status: Phase 6 of 10 (customer experience).** Foundation, authentication/roles, the queue engine,
-> staff workflows, the waiting-time prediction pipeline and the complete customer application exist:
-> services, joining a queue, a live digital ticket, history, in-app notifications and a profile page.
-> The admin screens, analytics and counter recommendations arrive in later phases.
+> **Status: Phase 7 of 10 (administration).** Foundation, authentication/roles, the queue engine, staff
+> workflows, the waiting-time prediction pipeline, the complete customer application and the administration
+> interface exist: dashboard, live queue monitor, services, counters, users, ML comparison and training, and
+> system settings. Analytics charts, counter recommendations and CSV reports arrive in Phase 8.
 > This README documents only commands that exist in the current code.
 
 ## Stack
@@ -81,7 +81,7 @@ flask seed-counters
 flask assign-staff --email staff@example.com --counter-id 1
 ```
 `seed-counters` creates one CLOSED counter per service ("GEN Counter 1", ...). `assign-staff` links an existing
-STAFF account to a counter. (Admins can also do both through the API below; the admin screens arrive in Phase 7.)
+STAFF account to a counter. (Admins can also do both on the Counters page, or through the API below.)
 
 ### Machine learning: train, compare, activate
 ```
@@ -219,13 +219,41 @@ the measured wait is written next to the original prediction. A prediction failu
 |---|---|---|
 | `QUEUE_JOINED` | ticket issued; includes people ahead and the estimate if one exists | once |
 | `CALLED` | staff call the ticket; names the counter (this is also the counter assignment) | once |
-| `TURN_APPROACHING` | at most 2 people ahead (`NOTIFY_APPROACHING_AHEAD`), checked whenever someone ahead leaves the line | once per ticket |
+| `TURN_APPROACHING` | at most 2 people ahead (`notifications.approaching_ahead`), checked whenever someone ahead leaves the line | once per ticket |
 | `WAIT_TIME_CHANGED` | the live estimate differs from the last one told by >= 10 minutes AND >= 25%; checked when the customer's own ticket refreshes | repeatable |
 | `CANCELLED` / `SKIPPED` / `ABSENT` | ticket leaves the line without being served | once |
 
 "Once" is enforced by a unique key in the database, so it also holds when two requests race. A notification
-failure is logged and never blocks joining, calling or cancelling. Thresholds are constants in
-`services/notification_service.py` (an admin settings screen arrives in Phase 7).
+failure is logged and never blocks joining, calling or cancelling. The thresholds are administrator-editable system
+settings (see below); the values in the table are the defaults.
+
+### Admin API (Phase 7)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/admin/dashboard` | Summary figures, per-service congestion and counter overview |
+| GET | `/api/admin/queue` | `status` (ACTIVE default, ALL or one status), `service_id`, `search`, `sort` (number, service, customer, status, joined), `order`, `page`, `per_page` |
+| GET / POST | `/api/admin/services` | List with live stats / create (`name`, `prefix` 2-6 letters or digits, `default_service_duration` 1-240) |
+| PATCH | `/api/admin/services/<id>` | name, prefix, description, duration, status |
+| GET / PATCH | `/api/settings` | `{"settings": {"congestion.high_min": 12, "notifications.approaching_ahead": null}}` (null resets to the default) |
+| GET | `/api/users` | now also `sort` (name, email, role, status, created) and `order` |
+
+All require the ADMIN role. Counter and ML endpoints from earlier phases are used by the Counters and ML pages.
+
+**Dashboard definitions.** "Today" is the local calendar day (`APP_TIMEZONE`). *Customers served today* = tickets completed
+today. *Average waiting time* = mean measured wait of tickets whose service started today; *average service duration* =
+mean duration of services completed today. Either is `null` (shown as a dash) when nothing has been measured; it is never
+shown as 0. *Active counters* = counters in the OPEN state.
+
+**Congestion levels** are computed per service from the number of waiting customers, using inclusive lower bounds that
+are system settings (defaults 5 / 11 / 21): LOW below 5, MODERATE 5-10, HIGH 11-20, CRITICAL 21 or more (more than 20).
+The system-wide level is the worst of the services. Thresholds must strictly increase.
+
+**System settings** (`system_settings` table; a missing row means the default): `congestion.moderate_min`,
+`congestion.high_min`, `congestion.critical_min`, `notifications.approaching_ahead`, `notifications.wait_change_minutes`,
+`notifications.wait_change_ratio`. Values are validated for type and range; an invalid change rejects the whole request.
+
+The live monitor computes each waiting ticket's estimate with the same model and features as the customer's own ticket
+page, but once per service per request rather than once per row.
 
 Authorization reads the user's role and status from the database on every request (not from the
 token), so role changes and deactivation take effect immediately. Frontend route guards are for
@@ -242,6 +270,23 @@ npm run dev
 ```
 Runs at http://localhost:5173 and proxies `/api` to the backend. Optionally set
 `VITE_API_BASE_URL` (see `frontend/.env.example`).
+
+### Admin screens (log in as an ADMIN)
+| Page | Path | What it does |
+|---|---|---|
+| Dashboard | `/admin` | Customers served today, waiting, being served, average wait and service time, active counters, congestion level; per-service and per-counter tables. Refreshes every 5 s |
+| Live queue | `/admin/queue` | Queue Number, Service, Customer, Position, Estimated Wait, Status, Counter. Search, status/service filters, sortable columns, paging, 5 s refresh |
+| Services | `/admin/services` | Create, edit, deactivate/activate (never deleted) |
+| Counters | `/admin/counters` | Create counters, set their service, assign/remove staff, deactivate/re-enable |
+| Users | `/admin/users` | Create staff/admin accounts, change roles, activate/deactivate; search, filters, sorting, paging |
+| ML models | `/admin/ml` | Held-out metrics per run with the rule-based baseline, activate a model, live accuracy, prediction errors |
+| ML training | `/admin/ml/training` | Train and compare the three algorithms on synthetic, historical or mixed data |
+| Settings | `/admin/settings` | Congestion and notification thresholds (validated, saved all-or-nothing, resettable) |
+
+Destructive or high-impact actions (deactivating, removing staff, changing roles, activating a model) use a confirmation
+dialog. Administrators cannot bypass business rules: they cannot open counters or call/serve customers, cannot deactivate
+a service while customers are queued for it, cannot change a service prefix once tickets exist, and cannot change their
+own role or status. Staff management is split across **Users** (accounts) and **Counters** (assignments).
 
 ### Customer screens (log in as a CUSTOMER)
 | Page | Path | What it does |
@@ -265,6 +310,20 @@ cd frontend && npm test
 ```
 Backend tests use in-memory SQLite for speed; the real PostgreSQL connection and the migration
 against PostgreSQL are verified manually (`flask db upgrade`, then `/api/health/db`).
+
+## Verifying Phase 7 (manual, on PostgreSQL)
+1. `flask db upgrade` applies the `system_settings` migration; `pytest` and `npm test` pass.
+2. Log in as the admin. **Dashboard** shows dashes for the averages and congestion LOW on an empty system.
+3. **Services**: add a service (prefix is upper-cased); try a duplicate prefix (refused). **Counters**: create a counter for it, assign a
+   staff member, then in another browser log in as that staff member, open the counter and have customers join.
+4. **Dashboard** and **Live queue** update within about 5 seconds: waiting count, positions, estimated waits, congestion level.
+   Sort by Customer, search by name, filter by status.
+5. **Settings**: set the congestion thresholds to 2 / 4 / 6: the dashboard level rises immediately. Try 4 / 3 / 6: the save is refused with a
+   message beside the field and nothing changes. **Reset to default** restores 5 / 11 / 21.
+6. Try to deactivate a service that has customers waiting: refused with the number of customers. After they are served or cancelled it succeeds.
+7. **ML training**: train on synthetic data; **ML models**: compare the runs, activate one (confirmation dialog), then check **Prediction errors**
+   after some customers have started service.
+8. **Users**: change a role through the confirmation dialog; confirm you cannot change your own role.
 
 ## Verifying Phase 6 (manual, on PostgreSQL)
 1. `flask db upgrade`, then `pytest` and `npm test` pass. Have a trained, active model (`flask ml-train --activate-best`),
