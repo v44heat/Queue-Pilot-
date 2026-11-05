@@ -8,6 +8,9 @@ export const API_NAMES = [
   'getServices', 'joinQueue', 'getMyActive', 'getTicket', 'cancelTicket', 'getHistory',
   'getNotifications', 'getUnreadCount', 'markNotificationRead', 'markAllNotificationsRead',
   'updateProfile', 'changePassword',
+  'getAdminDashboard', 'getAdminQueue', 'adminListServices', 'adminCreateService', 'adminUpdateService',
+  'adminListCounters', 'adminCreateCounter', 'adminUpdateCounter', 'adminAssignStaff', 'adminUnassignStaff',
+  'getSettings', 'updateSettings', 'mlListModels', 'mlTrain', 'mlActivate', 'mlPerformance', 'mlPredictionLogs',
 ]
 
 export const apiMock = () => ({ ...Object.fromEntries(API_NAMES.map((n) => [n, vi.fn()])), default: {} })

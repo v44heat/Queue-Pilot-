@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
+import Pager from '../components/Pager.jsx'
+import SortHeader from '../components/SortHeader.jsx'
 import Button from '../components/ui/Button.jsx'
 import Card from '../components/ui/Card.jsx'
+import ConfirmDialog from '../components/ui/ConfirmDialog.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useToast } from '../context/ToastContext.jsx'
 import { createUser, listUsers, updateUser } from '../services/api.js'
 import { apiError } from '../utils/errors.js'
+import { fmtDate } from '../utils/format.js'
 
 const ROLES = ['CUSTOMER', 'STAFF', 'ADMIN']
 const EMPTY = { name: '', email: '', phone: '', password: '', role: 'STAFF' }
 
 export default function AdminUsers() {
   const { user: me } = useAuth()
-  const [query, setQuery] = useState({ search: '', role: '', status: '', page: 1 })
+  const toast = useToast()
+  const [query, setQuery] = useState({ search: '', role: '', status: '', sort: 'created', order: 'desc', page: 1 })
   const [searchInput, setSearchInput] = useState('')
   const [data, setData] = useState({ users: [], total: 0, pages: 1 })
   const [loading, setLoading] = useState(true)
@@ -18,12 +24,14 @@ export default function AdminUsers() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [formErrors, setFormErrors] = useState({})
+  const [pending, setPending] = useState(null) // { user, patch, title, message, label }
+  const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const params = { page: query.page, per_page: 10 }
+      const params = { page: query.page, per_page: 10, sort: query.sort, order: query.order }
       for (const k of ['search', 'role', 'status']) if (query[k]) params[k] = query[k]
       setData(await listUsers(params))
     } catch (err) {
@@ -35,13 +43,17 @@ export default function AdminUsers() {
 
   useEffect(() => { load() }, [load])
 
-  const change = async (u, patch, confirmText) => {
-    if (!window.confirm(confirmText)) return
+  const confirmChange = async () => {
+    setBusy(true)
     try {
-      await updateUser(u.id, patch)
+      await updateUser(pending.user.id, pending.patch)
+      toast.success('User updated.')
       await load()
     } catch (err) {
       setError(apiError(err).message)
+    } finally {
+      setBusy(false)
+      setPending(null)
     }
   }
 
@@ -50,6 +62,7 @@ export default function AdminUsers() {
     setFormErrors({})
     try {
       await createUser(form)
+      toast.success('User created.')
       setForm(EMPTY)
       setShowForm(false)
       setQuery({ ...query, page: 1 })
@@ -60,10 +73,12 @@ export default function AdminUsers() {
     }
   }
 
+  const sortProps = { sort: query.sort, order: query.order, onSort: (sort, order) => setQuery({ ...query, sort, order, page: 1 }) }
+
   return (
     <>
       <h1>User management</h1>
-      <p className="qp-muted">Create staff and admin accounts, change roles, and activate or deactivate users.</p>
+      <p className="qp-muted">Create staff and admin accounts, change roles, and activate or deactivate users. Assign staff to counters under Counters.</p>
 
       <Card
         title={`Users (${data.total})`}
@@ -109,7 +124,16 @@ export default function AdminUsers() {
         ) : (
           <div className="qp-table-wrap">
             <table className="qp-table">
-              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead>
+                <tr>
+                  <SortHeader label="Name" sortKey="name" {...sortProps} />
+                  <SortHeader label="Email" sortKey="email" {...sortProps} />
+                  <SortHeader label="Role" sortKey="role" {...sortProps} />
+                  <SortHeader label="Status" sortKey="status" {...sortProps} />
+                  <SortHeader label="Joined" sortKey="created" {...sortProps} />
+                  <th>Actions</th>
+                </tr>
+              </thead>
               <tbody>
                 {data.users.map((u) => {
                   const self = u.id === me.id
@@ -119,15 +143,20 @@ export default function AdminUsers() {
                       <td>{u.email}</td>
                       <td>
                         <select aria-label={`Role for ${u.email}`} value={u.role} disabled={self}
-                          onChange={(e) => change(u, { role: e.target.value }, `Change ${u.email} to ${e.target.value}?`)}>
+                          onChange={(e) => setPending({ user: u, patch: { role: e.target.value }, title: 'Change role?', message: `${u.email} will become ${e.target.value}. Their permissions change immediately.`, label: 'Change role' })}>
                           {ROLES.map((r) => <option key={r}>{r}</option>)}
                         </select>
                       </td>
                       <td>{u.status}</td>
+                      <td>{fmtDate(u.created_at)}</td>
                       <td>
                         <Button variant="ghost" disabled={self}
-                          onClick={() => change(u, { status: u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' },
-                            `${u.status === 'ACTIVE' ? 'Deactivate' : 'Activate'} ${u.email}?`)}>
+                          onClick={() => {
+                            const off = u.status === 'ACTIVE'
+                            setPending({ user: u, patch: { status: off ? 'INACTIVE' : 'ACTIVE' }, label: off ? 'Deactivate' : 'Activate',
+                              title: `${off ? 'Deactivate' : 'Activate'} ${u.email}?`,
+                              message: off ? 'They will be signed out of every session and unable to log in.' : 'They will be able to log in again.' })
+                          }}>
                           {u.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
                         </Button>
                       </td>
@@ -138,13 +167,10 @@ export default function AdminUsers() {
             </table>
           </div>
         )}
-
-        <div className="qp-pager">
-          <Button variant="ghost" disabled={query.page <= 1} onClick={() => setQuery({ ...query, page: query.page - 1 })}>Previous</Button>
-          <span>Page {query.page} of {data.pages || 1}</span>
-          <Button variant="ghost" disabled={query.page >= (data.pages || 1)} onClick={() => setQuery({ ...query, page: query.page + 1 })}>Next</Button>
-        </div>
+        <Pager page={query.page} pages={data.pages} onChange={(page) => setQuery({ ...query, page })} />
       </Card>
+      <ConfirmDialog open={Boolean(pending)} busy={busy} title={pending?.title} message={pending?.message}
+        confirmLabel={pending?.label} cancelLabel="Cancel" onConfirm={confirmChange} onCancel={() => setPending(null)} />
     </>
   )
 }

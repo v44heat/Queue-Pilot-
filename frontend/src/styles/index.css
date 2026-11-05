@@ -152,3 +152,25 @@ a { color: var(--qp-primary); }
   .qp-notes li { flex-direction: column; }
   .qp-actions .qp-btn { padding: .7rem 1rem; }
 }
+
+/* ---- Phase 7: admin ---- */
+.qp-content { max-width: 1100px; }
+.qp-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.qp-stat { background: var(--qp-surface); border: 1px solid var(--qp-border); border-radius: var(--qp-radius); padding: 1rem; display: grid; gap: .3rem; align-content: start; }
+.qp-stat__label { font-size: .75rem; color: var(--qp-muted); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.qp-stat__value { font-size: 1.7rem; line-height: 1.2; }
+.qp-level--low { color: #166534; background: #dcfce7; }
+.qp-level--moderate { color: #854d0e; background: #fef9c3; }
+.qp-level--high { color: #9a3412; background: #ffedd5; }
+.qp-level--critical { color: #991b1b; background: #fee2e2; }
+.qp-sort { background: none; border: 0; font: inherit; font-weight: 700; cursor: pointer; padding: 0; color: inherit; }
+.qp-chips { list-style: none; display: flex; flex-wrap: wrap; gap: .35rem; padding: 0; margin: 0 0 .5rem; }
+.qp-chips li { background: var(--qp-bg); border: 1px solid var(--qp-border); border-radius: 999px; padding: .1rem .2rem .1rem .6rem; font-size: .85rem; }
+.qp-chips button { background: none; border: 0; cursor: pointer; font-size: 1rem; color: var(--qp-muted); }
+.qp-setting { display: grid; gap: .35rem; padding-bottom: 1rem; border-bottom: 1px solid var(--qp-border); }
+.qp-setting input { width: 8rem; font: inherit; padding: .5rem .65rem; border: 1px solid var(--qp-border); border-radius: 8px; }
+.qp-setting .qp-btn { width: fit-content; }
+.is-active-row { background: #f0fdf4; }
+.qp-baseline-row { color: var(--qp-muted); font-style: italic; }
+.qp-note { margin: .75rem 0; }
+.qp-table td, .qp-table th { vertical-align: top; }

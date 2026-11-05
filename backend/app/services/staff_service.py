@@ -80,6 +80,8 @@ def open_counter(staff, counter_id: int) -> Counter:
         raise QueueError("counter_inactive", "This counter has been deactivated by an administrator.", 409)
     if counter.service_id is None:
         raise QueueError("no_service", "This counter has no service assigned yet.", 409)
+    if counter.service.status != "ACTIVE":
+        raise QueueError("service_inactive", "This counter's service has been deactivated.", 409)
     counter.status = "OPEN"
     db.session.commit()
     return counter

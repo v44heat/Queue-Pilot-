@@ -61,20 +61,30 @@ def average_service_duration(service: Service) -> float:
     return round(sum(values) / len(values), 2) if values else float(service.default_service_duration)
 
 
-def build_features(service: Service, people_ahead_n: int, queue_length: int) -> dict:
+def service_state(service: Service) -> dict:
+    """The parts of the feature set that depend on the service, not on one ticket's place in line."""
     cap = capacity_by_service().get(service.id, EMPTY_CAPACITY)
     staff = (
         db.session.query(func.count(distinct(StaffCounterAssignment.staff_id)))
         .join(Counter, Counter.id == StaffCounterAssignment.counter_id)
         .filter(Counter.service_id == service.id, Counter.status == "OPEN").scalar()
     )
-    now = local_now()
+    return {"cap": cap, "staff": int(staff or 0), "avg": float(average_service_duration(service))}
+
+
+def build_features(service: Service, people_ahead_n: int, queue_length: int) -> dict:
+    return features_from_state(service, service_state(service), people_ahead_n, queue_length)
+
+
+def features_from_state(service: Service, state: dict, people_ahead_n: int, queue_length: int, now=None) -> dict:
+    cap, staff = state["cap"], state["staff"]
+    now = now or local_now()
     return {
         "service_type": service.prefix,
         "people_ahead": int(people_ahead_n), "queue_length": int(queue_length),
         "active_counters": int(cap["open"]), "busy_counters": int(cap["busy"]),
-        "average_service_duration": float(average_service_duration(service)),
-        "staff_count": int(staff or 0),
+        "average_service_duration": state["avg"],
+        "staff_count": staff,
         "hour": now.hour, "day_of_week": now.weekday(), "peak_hour": is_peak_hour(now.hour),
     }
 
@@ -148,3 +158,29 @@ def what_if(service: Service, overrides: dict) -> Prediction:
     feats.update({k: v for k, v in overrides.items() if v is not None})
     validate_feature_values(feats)
     return predict(feats)
+
+
+def estimates_for(tickets) -> dict:
+    """{ticket_id: (people_ahead, estimate)} for the WAITING tickets in `tickets`.
+
+    Computes each service's state and waiting order once, so a screen listing many tickets needs
+    a handful of queries instead of several per row. Same numbers as live_estimate()."""
+    from collections import defaultdict
+
+    by_service = defaultdict(list)
+    for t in tickets:
+        if t.status == "WAITING":
+            by_service[t.service_id].append(t)
+    out, now = {}, local_now()
+    for sid, items in by_service.items():
+        service = items[0].service
+        order = [r[0] for r in db.session.query(QueueTicket.id)
+                 .filter(QueueTicket.service_id == sid, QueueTicket.status == "WAITING")
+                 .order_by(QueueTicket.queue_date, QueueTicket.sequence).all()]
+        position = {tid: i for i, tid in enumerate(order)}
+        state = service_state(service)
+        for t in items:
+            ahead = position[t.id]
+            feats = features_from_state(service, state, ahead, max(len(order), ahead + 1), now)
+            out[t.id] = (ahead, predict(feats).to_public())
+    return out

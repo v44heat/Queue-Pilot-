@@ -47,7 +47,7 @@ def finish(client, w, ticket):
     (30, 10, True), (30, 25, False), (10, 19, False), (10, 20, True), (0, 12, True), (0, 9, False),
     (100, 108, False), (100, 110, False), (40, 30, True), (5, 5, False),
 ])
-def test_significant_change_rule(old, new, expected):
+def test_significant_change_rule(app, old, new, expected):  # thresholds are system settings, so an app context is needed
     assert is_significant_change(old, new) is expected
 
 
