@@ -174,3 +174,16 @@ a { color: var(--qp-primary); }
 .qp-baseline-row { color: var(--qp-muted); font-style: italic; }
 .qp-note { margin: .75rem 0; }
 .qp-table td, .qp-table th { vertical-align: top; }
+
+/* ---- Phase 8: analytics, recommendations, reports ---- */
+.qp-chart { width: 100%; min-width: 0; }
+.qp-data { margin-top: .75rem; font-size: .9rem; }
+.qp-data summary { cursor: pointer; color: var(--qp-primary); }
+.qp-priority--urgent { color: #991b1b; background: #fee2e2; }
+.qp-priority--high { color: #9a3412; background: #ffedd5; }
+.qp-priority--medium { color: #854d0e; background: #fef9c3; }
+.qp-priority--none { color: #166534; background: #dcfce7; }
+.qp-headline { font-size: 1.05rem; font-weight: 600; margin: 0 0 .5rem; }
+.qp-subhead { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--qp-muted); margin: .75rem 0 .25rem; }
+.qp-reasons { margin: 0 0 .75rem; padding-left: 1.2rem; display: grid; gap: .3rem; }
+.qp-simple-list li > span:nth-child(2) { flex: 1; min-width: 200px; }

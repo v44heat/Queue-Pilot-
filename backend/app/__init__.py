@@ -39,6 +39,7 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
 
     from . import models  # noqa: F401  (register models with SQLAlchemy metadata)
     from .cli import register_cli
+    from .routes.analytics import analytics_bp
     from .routes.auth import auth_bp
     from .routes.admin import admin_bp
     from .routes.counters import counters_bp
@@ -47,6 +48,7 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     from .routes.notifications import notifications_bp
     from .routes.predictions import predictions_bp
     from .routes.queue import queue_bp
+    from .routes.reports import reports_bp
     from .routes.services import services_bp
     from .routes.settings import settings_bp
     from .routes.staff import staff_bp
@@ -67,6 +69,8 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(settings_bp, url_prefix="/api/settings")
+    app.register_blueprint(analytics_bp, url_prefix="/api/analytics")
+    app.register_blueprint(reports_bp, url_prefix="/api/reports")
 
     @app.errorhandler(QueueError)
     def handle_queue_error(e):

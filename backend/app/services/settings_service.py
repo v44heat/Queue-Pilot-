@@ -37,6 +37,16 @@ CATALOG: dict[str, dict] = {
         "label": "Waiting-time change that triggers an update (fraction)",
         "description": "0.25 means 25% of the previously announced estimate (at least 1 minute is used as the base).",
     },
+    "recommendations.wait_threshold_minutes": {
+        "type": "float", "default": 30.0, "min": 5.0, "max": 240.0, "group": "Counter recommendations",
+        "label": "Recommend another counter when a new customer's estimated wait reaches (minutes)",
+        "description": "Also triggered by HIGH or CRITICAL congestion, by no open counter while customers wait, or by arrivals outpacing capacity.",
+    },
+    "recommendations.arrival_window_minutes": {
+        "type": "int", "default": 30, "min": 5, "max": 240, "group": "Counter recommendations",
+        "label": "Arrival rate is measured over the last (minutes)",
+        "description": "Customers who joined within this window are used to estimate how fast people are arriving.",
+    },
 }
 CONGESTION_ORDER = ("congestion.moderate_min", "congestion.high_min", "congestion.critical_min")
 

@@ -53,6 +53,9 @@ class QueueTicket(db.Model):
     service_duration = db.Column(db.Float)
     # The estimate the customer was last told (join-time prediction, then significant updates); minutes.
     notified_wait_estimate = db.Column(db.Float)
+    # When the ticket left the WAITING state for any reason (called, cancelled or skipped). Lets analytics
+    # reconstruct how long the queue was at any moment. NULL for tickets that never left WAITING.
+    wait_ended_time = db.Column(db.DateTime(timezone=True))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     service = db.relationship("Service")

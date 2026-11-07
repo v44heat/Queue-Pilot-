@@ -139,7 +139,7 @@ def test_live_performance_is_computed_from_real_logs(client, w):
     db.session.commit()
     perf = ml_service.live_performance()
     fb = next(g for g in perf["groups"] if g["source"] == "fallback")
-    assert fb["n"] == 3 and fb["mae"] == pytest.approx(2.3333, abs=1e-4)
+    assert fb["n"] == 3 and fb["mae"] == pytest.approx(2.3333, abs=1e-4) and fb["r2"] is None  # too few outcomes for R-squared
     assert fb["rmse"] == pytest.approx(((4 + 4 + 9) / 3) ** 0.5, abs=1e-3)
     assert perf["predictions_awaiting_outcome"] == 1  # the join-time log has no outcome yet
 

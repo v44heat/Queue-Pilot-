@@ -1,4 +1,4 @@
-from .counter import COUNTER_STATUSES, Counter, StaffCounterAssignment  # noqa: F401
+from .counter import COUNTER_STATUSES, Counter, CounterSession, StaffCounterAssignment  # noqa: F401
 from .ml import ModelVersion, PredictionLog  # noqa: F401
 from .notification import NOTIFICATION_TYPES, Notification  # noqa: F401
 from .queue import ACTIVE_STATUSES, TERMINAL_STATUSES, TICKET_STATUSES, QueueCounter, QueueTicket  # noqa: F401

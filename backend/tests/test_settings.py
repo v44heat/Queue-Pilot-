@@ -25,7 +25,7 @@ def test_defaults_are_listed_with_metadata(client, adm):
     by_key = {s["key"]: s for s in items}
     assert by_key["congestion.moderate_min"]["value"] == 5 and by_key["congestion.high_min"]["value"] == 11 and by_key["congestion.critical_min"]["value"] == 21
     assert all(s["is_default"] and s["value"] == s["default"] and s["label"] and s["description"] for s in items)
-    assert {s["group"] for s in items} == {"Congestion", "Customer notifications"}
+    assert {s["group"] for s in items} == {"Congestion", "Customer notifications", "Counter recommendations"}
 
 
 def test_update_applies_and_is_marked_non_default(client, adm):

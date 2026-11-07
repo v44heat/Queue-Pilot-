@@ -15,7 +15,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
-from ..models.counter import Counter, StaffCounterAssignment
+from ..models.counter import Counter, CounterSession, StaffCounterAssignment
 from ..models.queue import QueueTicket
 from . import notification_service, prediction_service
 from .counter_service import current_ticket
@@ -83,6 +83,7 @@ def open_counter(staff, counter_id: int) -> Counter:
     if counter.service.status != "ACTIVE":
         raise QueueError("service_inactive", "This counter's service has been deactivated.", 409)
     counter.status = "OPEN"
+    db.session.add(CounterSession(counter_id=counter.id, opened_at=_now(), opened_by=staff.id))
     db.session.commit()
     return counter
 
@@ -94,6 +95,7 @@ def close_counter(staff, counter_id: int) -> Counter:
     if current_ticket(counter.id) is not None:
         raise QueueError("counter_busy", "Finish, skip or mark absent the current customer before closing.", 409)
     counter.status = "CLOSED"
+    CounterSession.query.filter_by(counter_id=counter.id, closed_at=None).update({"closed_at": _now()})
     db.session.commit()
     return counter
 
@@ -133,7 +135,7 @@ def call_next(staff, counter_id: int) -> QueueTicket:
             result = db.session.execute(
                 update(QueueTicket)
                 .where(QueueTicket.id == ids[0], QueueTicket.status == "WAITING")
-                .values(status="CALLED", counter_id=cid, called_time=now)
+                .values(status="CALLED", counter_id=cid, called_time=now, wait_ended_time=now)
             )
             if result.rowcount == 1:
                 db.session.commit()
@@ -154,12 +156,13 @@ def call_next(staff, counter_id: int) -> QueueTicket:
 def _apply(staff, ticket_id: int, new_status: str, stamp) -> QueueTicket:
     ticket = _locked_ticket_for(staff, ticket_id)
     was_waiting = ticket.status == "WAITING"
+    now = _now()
     try:
-        transition(ticket, new_status)
+        transition(ticket, new_status, now)
     except QueueError:
         db.session.rollback()
         raise
-    stamp(ticket, _now())
+    stamp(ticket, now)
     db.session.commit()
     notification_service.after_transition(ticket, new_status, was_waiting)  # never blocks the action
     return ticket

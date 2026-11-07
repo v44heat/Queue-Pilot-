@@ -1,5 +1,5 @@
 """Service counters and staff-to-counter assignments."""
-from sqlalchemy import CheckConstraint, Index, UniqueConstraint
+from sqlalchemy import CheckConstraint, Index, UniqueConstraint, text
 
 from ..extensions import db
 from .user import utcnow
@@ -41,4 +41,23 @@ class StaffCounterAssignment(db.Model):
     __table_args__ = (
         UniqueConstraint("staff_id", "counter_id", name="uq_staff_counter"),
         Index("ix_staff_counter_assignments_counter_id", "counter_id"),
+    )
+
+
+class CounterSession(db.Model):
+    """One continuous period during which a counter was OPEN. Used for utilization analytics."""
+
+    __tablename__ = "counter_sessions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    counter_id = db.Column(db.Integer, db.ForeignKey("counters.id", ondelete="CASCADE"), nullable=False)
+    opened_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+    closed_at = db.Column(db.DateTime(timezone=True))  # NULL while the counter is still open
+    opened_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+
+    __table_args__ = (
+        # A counter can have at most one open session.
+        Index("uq_counter_sessions_one_open", "counter_id", unique=True,
+              postgresql_where=text("closed_at IS NULL"), sqlite_where=text("closed_at IS NULL")),
+        Index("ix_counter_sessions_counter_opened", "counter_id", "opened_at"),
     )

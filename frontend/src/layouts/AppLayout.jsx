@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  Activity, Bell, BrainCircuit, Clock, Cpu, Gauge, Home as HomeIcon, LayoutDashboard, Layers, LogIn, LogOut, Monitor,
+  Activity, Bell, BarChart3, BrainCircuit, Clock, Cpu, Gauge, Home as HomeIcon, LayoutDashboard, FileDown, Layers, Lightbulb, LogIn, LogOut, Monitor,
   Settings, Ticket, User, UserPlus, Users,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -52,6 +52,9 @@ export default function AppLayout() {
           {user?.role === 'ADMIN' && (
             <>
               <NavLink to="/admin/queue" className="qp-nav">{icon(Activity)} Live queue</NavLink>
+              <NavLink to="/admin/analytics" className="qp-nav">{icon(BarChart3)} Analytics</NavLink>
+              <NavLink to="/admin/recommendations" className="qp-nav">{icon(Lightbulb)} Recommendations</NavLink>
+              <NavLink to="/admin/reports" className="qp-nav">{icon(FileDown)} Reports</NavLink>
               <NavLink to="/admin/services" className="qp-nav">{icon(Layers)} Services</NavLink>
               <NavLink to="/admin/counters" className="qp-nav">{icon(Monitor)} Counters</NavLink>
               <NavLink to="/admin/users" className="qp-nav">{icon(Users)} Users</NavLink>

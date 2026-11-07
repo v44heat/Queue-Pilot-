@@ -66,6 +66,19 @@ def compute_metrics(y_true, y_pred) -> dict:
     return {k: (round(v, 4) if math.isfinite(v) else None) for k, v in out.items()}
 
 
+MIN_SAMPLES_FOR_R2 = 10
+
+
+def reporting_metrics(y_true, y_pred) -> dict:
+    """compute_metrics for LIVE reporting. R^2 is shown only with at least MIN_SAMPLES_FOR_R2 outcomes: with a
+    handful of points (or nearly identical actual values) it is dominated by noise and can be hugely negative.
+    MAE and RMSE are reported from the first measured prediction."""
+    out = compute_metrics(y_true, y_pred)
+    if len(y_true) < MIN_SAMPLES_FOR_R2:
+        out["r2"] = None
+    return out
+
+
 def _is_eligible(test_metrics: dict) -> bool:
     return all(v is not None for v in test_metrics.values()) and test_metrics["r2"] > 0
 

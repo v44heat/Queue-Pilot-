@@ -4,9 +4,10 @@ import CongestionBadge from '../../components/CongestionBadge.jsx'
 import StatCard from '../../components/StatCard.jsx'
 import Card from '../../components/ui/Card.jsx'
 import usePolling from '../../hooks/usePolling.js'
-import { getAdminDashboard } from '../../services/api.js'
+import { getAdminDashboard, getRecommendations } from '../../services/api.js'
 import { apiError } from '../../utils/errors.js'
 import { fmtMin } from '../../utils/format.js'
+import PriorityBadge from '../../components/PriorityBadge.jsx'
 
 export default function AdminDashboard() {
   const [data, setData] = useState(null)
@@ -17,6 +18,14 @@ export default function AdminDashboard() {
   }, [])
   useEffect(() => { load() }, [load])
   usePolling(load, 5000, true)
+
+  // Advice changes more slowly than the live figures, so it is refreshed less often. A failure here must not hide the dashboard.
+  const [advice, setAdvice] = useState(null)
+  const loadAdvice = useCallback(async () => {
+    try { setAdvice((await getRecommendations())?.recommendations ?? []) } catch { /* keep the previous advice */ }
+  }, [])
+  useEffect(() => { loadAdvice() }, [loadAdvice])
+  usePolling(loadAdvice, 15000, true)
 
   if (!data) return error ? <div className="qp-alert" role="alert">{error}</div> : <p className="qp-muted">Loading…</p>
   const s = data.summary
@@ -41,6 +50,18 @@ export default function AdminDashboard() {
           <small className="qp-muted">Worst service. Moderate from {t.moderate}, high from {t.high}, critical from {t.critical} waiting.</small>
         </div>
       </div>
+
+      <Card title="Counter recommendations" action={<Link to="/admin/recommendations">See all and the reasons</Link>}>
+        {advice === null ? <p className="qp-muted">Loading…</p> : advice.filter((a) => a.action !== 'NONE').length === 0 ? (
+          <p className="qp-muted">No action needed: every service is within the configured limits. Advice is advisory; nothing is opened automatically.</p>
+        ) : (
+          <ul className="qp-simple-list">
+            {advice.filter((a) => a.action !== 'NONE').slice(0, 3).map((a) => (
+              <li key={a.service.id}><PriorityBadge priority={a.priority} /><span>{a.headline}</span></li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card title="Services" action={<Link to="/admin/queue">Open live queue</Link>}>
         {data.services.length === 0 ? <p className="qp-muted">No active services.</p> : (
