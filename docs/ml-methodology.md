@@ -97,7 +97,13 @@ How to read this honestly:
 * No open counter for the service: no estimate (`unavailable`). The model was never trained on zero-counter situations.
 * Every ticket-time prediction is stored in `prediction_logs` with features, source and model version; the measured wait and signed error (`prediction - actual`) are added when service starts. Cancelled, skipped and absent tickets never receive an outcome.
 
-## 8. Limitations
+## 8. Live accuracy reporting
+
+The admin pages report accuracy of predictions made by the running system once the customer has started service. MAE and RMSE are shown from the
+first measured prediction; R² only from 10, because with a handful of points (or almost identical actual waits) it is dominated by noise and can be
+hugely negative. Training-time metrics on held-out days are unaffected.
+
+## 9. Limitations
 
 * Results are only as good as the data. Synthetic scores prove nothing about a real organisation; collect real tickets, then train on `historical` or `mixed` data.
 * The live estimate reuses the join-time model with the current line; it assumes the remaining wait depends on people ahead, not on how long the customer already waited.

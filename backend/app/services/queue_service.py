@@ -77,14 +77,17 @@ def can_transition(current: str, new: str) -> bool:
     return new in TRANSITIONS.get(current, frozenset())
 
 
-def transition(ticket: QueueTicket, new_status: str) -> None:
-    """Validate and apply a status change (caller commits). Timestamps/durations are recorded by staff_service."""
+def transition(ticket: QueueTicket, new_status: str, now: datetime | None = None) -> None:
+    """Validate and apply a status change (caller commits). Service timestamps/durations are recorded by
+    staff_service; here we record the moment a ticket leaves the waiting line, for queue-length analytics."""
     if not can_transition(ticket.status, new_status):
         raise QueueError(
             "invalid_transition",
             f"A {ticket.status.lower()} ticket cannot be changed to {new_status.lower()}.",
             409,
         )
+    if ticket.status == "WAITING":
+        ticket.wait_ended_time = now or datetime.now(timezone.utc)
     ticket.status = new_status
 
 

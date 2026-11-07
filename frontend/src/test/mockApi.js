@@ -11,6 +11,8 @@ export const API_NAMES = [
   'getAdminDashboard', 'getAdminQueue', 'adminListServices', 'adminCreateService', 'adminUpdateService',
   'adminListCounters', 'adminCreateCounter', 'adminUpdateCounter', 'adminAssignStaff', 'adminUnassignStaff',
   'getSettings', 'updateSettings', 'mlListModels', 'mlTrain', 'mlActivate', 'mlPerformance', 'mlPredictionLogs',
+  'getQueueLength', 'getWaitingByHour', 'getDailyVolume', 'getServicePerformance', 'getCounterUtilization',
+  'getPredictionAccuracy', 'getRecommendations', 'downloadReport',
 ]
 
 export const apiMock = () => ({ ...Object.fromEntries(API_NAMES.map((n) => [n, vi.fn()])), default: {} })
@@ -22,4 +24,5 @@ export function customerDefaults(api) {
   api.getUnreadCount.mockResolvedValue({ unread: 0 })
   api.getNotifications.mockResolvedValue({ notifications: [], total: 0, pages: 1, page: 1, unread: 0 })
   api.getServices.mockResolvedValue({ services: [] })
+  api.getRecommendations.mockResolvedValue({ recommendations: [] })
 }

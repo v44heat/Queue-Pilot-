@@ -50,6 +50,17 @@ def test_undefined_metric_is_none_not_nan():
     json.dumps(compute_metrics([5.0], [4.0]))  # must be serialisable
 
 
+def test_live_reporting_hides_r2_until_there_are_enough_outcomes():
+    from app.ml.training import MIN_SAMPLES_FOR_R2, reporting_metrics
+
+    actual = [10.0, 10.1, 10.0, 9.9, 10.0, 10.1, 10.0, 9.9, 10.0, 10.0]  # almost no variance: R-squared would be wild
+    few = reporting_metrics(actual[: MIN_SAMPLES_FOR_R2 - 1], [12.0] * (MIN_SAMPLES_FOR_R2 - 1))
+    assert few["r2"] is None and few["mae"] > 1.9 and few["rmse"] > 1.9  # MAE and RMSE are still reported
+    enough = reporting_metrics(actual, [12.0] * MIN_SAMPLES_FOR_R2)
+    assert enough["r2"] is not None
+    assert reporting_metrics([5.0], [7.0])["mae"] == 2.0
+
+
 # ---------------------------------------------------------------- chronological split
 def test_split_is_chronological_with_no_overlap(frame):
     train, val, test = chronological_split(frame)

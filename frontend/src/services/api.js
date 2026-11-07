@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { readBlobError } from '../utils/errors.js'
 import { tokenStore } from '../utils/tokenStore.js'
 
 // Empty base URL => same-origin requests, handled by the Vite dev proxy.
@@ -87,5 +88,25 @@ export const mlTrain = (payload) => api.post('/api/ml/train', payload, { timeout
 export const mlActivate = (id) => api.post(`/api/ml/models/${id}/activate`).then(data)
 export const mlPerformance = () => api.get('/api/ml/performance').then(data)
 export const mlPredictionLogs = (params) => api.get('/api/ml/prediction-logs', { params }).then(data)
+
+// ---- analytics, recommendations and reports (admin) ----
+export const getQueueLength = (params) => api.get('/api/analytics/queue-length', { params }).then(data)
+export const getWaitingByHour = (params) => api.get('/api/analytics/waiting-by-hour', { params }).then(data)
+export const getDailyVolume = (params) => api.get('/api/analytics/daily-volume', { params }).then(data)
+export const getServicePerformance = (params) => api.get('/api/analytics/service-performance', { params }).then(data)
+export const getCounterUtilization = (params) => api.get('/api/analytics/counter-utilization', { params }).then(data)
+export const getPredictionAccuracy = (params) => api.get('/api/analytics/prediction-accuracy', { params }).then(data)
+export const getRecommendations = () => api.get('/api/analytics/recommendations').then(data)
+
+// CSV downloads need the auth header, so they are fetched as a blob and saved by the page (see utils/download.js).
+export async function downloadReport(name, params) {
+  try {
+    const res = await api.get(`/api/reports/${name}`, { params, responseType: 'blob' })
+    const match = /filename="([^"]+)"/.exec(res.headers['content-disposition'] || '')
+    return { blob: res.data, filename: match ? match[1] : `queuepilot-${name}.csv` }
+  } catch (err) {
+    throw await readBlobError(err)
+  }
+}
 
 export default api

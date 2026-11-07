@@ -1,10 +1,12 @@
 """Administrator counter configuration. Admins configure counters and assignments but
 cannot open counters or call/serve customers; those are staff workflows."""
+from datetime import datetime, timezone
+
 from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
-from ..models.counter import Counter, StaffCounterAssignment
+from ..models.counter import Counter, CounterSession, StaffCounterAssignment
 from ..models.service import Service
 from ..models.user import User
 from ..services import counter_service as cs
@@ -77,6 +79,8 @@ def update_counter(counter_id: int):
         return error("validation_error", "Please correct the highlighted fields.", 400, errors)
     if ({"service_id", "status"} & clean.keys()) and cs.current_ticket(counter.id) is not None:
         return error("counter_busy", "This counter is serving a customer. Try again when it is free.", 409)
+    if counter.status == "OPEN" and clean.get("status", "OPEN") != "OPEN":  # an administrator closing/deactivating an open counter
+        CounterSession.query.filter_by(counter_id=counter.id, closed_at=None).update({"closed_at": datetime.now(timezone.utc)})
     for k, v in clean.items():
         setattr(counter, k, v)
     try:

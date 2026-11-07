@@ -3,10 +3,10 @@
 **Smarter Queues. Less Waiting.**
 Machine Learning-Based Smart Queue Management and Service Time Prediction System.
 
-> **Status: Phase 7 of 10 (administration).** Foundation, authentication/roles, the queue engine, staff
-> workflows, the waiting-time prediction pipeline, the complete customer application and the administration
-> interface exist: dashboard, live queue monitor, services, counters, users, ML comparison and training, and
-> system settings. Analytics charts, counter recommendations and CSV reports arrive in Phase 8.
+> **Status: Phase 8 of 10 (analytics and recommendations).** Foundation, authentication/roles, the queue engine,
+> staff workflows, the waiting-time prediction pipeline, the customer application, the administration interface
+> and now analytics charts, explainable counter recommendations and CSV reports exist. Testing/security hardening
+> is Phase 9; final integration, demo data and documentation is Phase 10.
 > This README documents only commands that exist in the current code.
 
 ## Stack
@@ -248,9 +248,52 @@ shown as 0. *Active counters* = counters in the OPEN state.
 are system settings (defaults 5 / 11 / 21): LOW below 5, MODERATE 5-10, HIGH 11-20, CRITICAL 21 or more (more than 20).
 The system-wide level is the worst of the services. Thresholds must strictly increase.
 
+### Analytics, recommendations and reports (Phase 8)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/analytics/queue-length` | `hours` (1-168), `service_id`. Per hour: customers waiting then, and the highest number waiting within that hour |
+| GET | `/api/analytics/waiting-by-hour` | `days` or `from`/`to` (max 90 days), `service_id`. Average measured wait by local join hour |
+| GET | `/api/analytics/daily-volume` | Per local day: joined, completed, cancelled, skipped, absent, in progress |
+| GET | `/api/analytics/service-performance` | Per service: completion rate, average and longest wait, average service time |
+| GET | `/api/analytics/counter-utilization` | Per counter: open minutes, serving minutes, utilization |
+| GET | `/api/analytics/prediction-accuracy` | MAE, RMSE, R², daily trend and bias, predicted-vs-actual points |
+| GET | `/api/analytics/recommendations` | Advisory counter recommendations (changes nothing) |
+| GET | `/api/reports/daily` `weekly` `monthly` `services` `counters` `models` | CSV. `date`, `month` (YYYY-MM), or `from`/`to` |
+
+All require ADMIN. Ranges are local calendar days and limited to 90 days (aggregation is done in Python, fine for one site).
+
+**How the figures are defined**
+- *Day* = tickets that **joined** that local day, in their current state. *Waiting time by hour* groups by join hour and uses only measured waits.
+- *Queue length* is reconstructed from each ticket's join time and the moment it left the waiting line (`wait_ended_time`, recorded since
+  Phase 8; backfilled for tickets already called). Cancelled or skipped tickets from before Phase 8 have no leave time and are omitted. Each point
+  shows the count at that moment and the highest count at any moment within the hour, so brief spikes are not missed.
+- *Counter utilization* = minutes spent serving customers / minutes the counter was open, both within the period. Opening times come from
+  `counter_sessions` (written when staff open and close a counter, or an admin takes it out of service; counters open at upgrade time get a session
+  starting then). A counter with no recorded open time shows *unknown*, never 0%. Time between calling and starting a customer is not counted as serving.
+- *Prediction accuracy* covers predictions made in the period whose customer has started service. R² is shown only from 10 measured predictions
+  (with fewer it is dominated by noise); MAE and RMSE are shown from the first. *Bias* = average(predicted - actual): positive means customers were told
+  longer than they waited.
+
+**Counter recommendations (explainable rules).** For each active service, a recommendation to **open a counter** is made when any of these holds:
+1. no counter is open while customers are waiting;
+2. congestion is HIGH or CRITICAL (same inclusive thresholds as the dashboard);
+3. a new customer's estimated wait is at least `recommendations.wait_threshold_minutes` (default 30);
+4. arrivals outpace service: arrivals per hour x recent average service minutes / 60 / open counters is at least 1 while people are waiting
+   (arrivals measured over the last `recommendations.arrival_window_minutes`, default 30).
+
+It suggests 1 additional counter (2 when CRITICAL), never more than the closed counters that have an active staff member assigned; with none, the advice is
+to assign staff. Priority is URGENT (rule 1, or CRITICAL), HIGH (HIGH congestion or an estimate of at least twice the threshold) or MEDIUM. Every
+recommendation lists the facts that triggered it and the data behind it. It is advisory: nothing is opened automatically, and no amount of waiting-time
+reduction is promised.
+
+**CSV reports** use the same queries as the analytics, so figures agree. Files are UTF-8 with a byte-order mark (Excel-friendly). Text cells that start
+with `=`, `+`, `-` or `@` get a leading apostrophe so a service named like a formula cannot execute in a spreadsheet. Daily/weekly/monthly reports list one
+row per day and service that had tickets (weekly is the Monday-to-Sunday week containing the date).
+
 **System settings** (`system_settings` table; a missing row means the default): `congestion.moderate_min`,
 `congestion.high_min`, `congestion.critical_min`, `notifications.approaching_ahead`, `notifications.wait_change_minutes`,
-`notifications.wait_change_ratio`. Values are validated for type and range; an invalid change rejects the whole request.
+`notifications.wait_change_ratio`, `recommendations.wait_threshold_minutes`, `recommendations.arrival_window_minutes`.
+Values are validated for type and range; an invalid change rejects the whole request.
 
 The live monitor computes each waiting ticket's estimate with the same model and features as the customer's own ticket
 page, but once per service per request rather than once per row.
@@ -281,7 +324,10 @@ Runs at http://localhost:5173 and proxies `/api` to the backend. Optionally set
 | Users | `/admin/users` | Create staff/admin accounts, change roles, activate/deactivate; search, filters, sorting, paging |
 | ML models | `/admin/ml` | Held-out metrics per run with the rule-based baseline, activate a model, live accuracy, prediction errors |
 | ML training | `/admin/ml/training` | Train and compare the three algorithms on synthetic, historical or mixed data |
-| Settings | `/admin/settings` | Congestion and notification thresholds (validated, saved all-or-nothing, resettable) |
+| Analytics | `/admin/analytics` | Queue length over time, waiting time by hour, customers per day, service performance, counter utilization, prediction accuracy and error trend, predicted-vs-actual. Each chart has a data table |
+| Recommendations | `/admin/recommendations` | Per service: advice, the reasons, and the data behind it. Advisory only |
+| Reports | `/admin/reports` | Download CSV: daily, weekly, monthly, service performance, counter performance, ML model performance |
+| Settings | `/admin/settings` | Congestion, notification and recommendation thresholds (validated, saved all-or-nothing, resettable) |
 
 Destructive or high-impact actions (deactivating, removing staff, changing roles, activating a model) use a confirmation
 dialog. Administrators cannot bypass business rules: they cannot open counters or call/serve customers, cannot deactivate
@@ -310,6 +356,17 @@ cd frontend && npm test
 ```
 Backend tests use in-memory SQLite for speed; the real PostgreSQL connection and the migration
 against PostgreSQL are verified manually (`flask db upgrade`, then `/api/health/db`).
+
+## Verifying Phase 8 (manual, on PostgreSQL)
+1. `flask db upgrade` applies the migration (it backfills leave times for already-called tickets and starts a session for counters that are open);
+   `pytest` and `npm test` pass.
+2. With a trained, active model and a staffed counter, have several customers join, then serve some, cancel one, and skip or mark one absent.
+3. **Analytics**: queue length shows the count over time and the highest within each hour; customers per day shows completed, cancelled, skipped and
+   absent; service performance and counter utilization match what you did. Open "View data table" under any chart to see the exact numbers.
+4. **Recommendations**: in **Settings** set the congestion thresholds low (for example 2 / 4 / 6) and the wait threshold to 5. With a few customers waiting
+   a recommendation appears with its reasons. Assign staff to a second, closed counter and it is named as a candidate. Nothing opens by itself.
+5. **Reports**: download each CSV and open it in Excel. Create a service named `=1+1` and download the services report: the name appears as text, not as 2.
+6. Counters you never opened show utilization as unknown (a dash), not 0%.
 
 ## Verifying Phase 7 (manual, on PostgreSQL)
 1. `flask db upgrade` applies the `system_settings` migration; `pytest` and `npm test` pass.

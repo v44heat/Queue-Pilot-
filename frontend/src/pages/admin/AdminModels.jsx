@@ -91,7 +91,7 @@ export default function AdminModels() {
                 ))}
               </tbody>
             </table>
-            <p className="qp-muted qp-small">Metrics need at least 2 measured predictions. {perf.predictions_awaiting_outcome} still awaiting an outcome.</p>
+            <p className="qp-muted qp-small">MAE and RMSE appear from the first measured prediction; R² needs at least 10. {perf.predictions_awaiting_outcome} still awaiting an outcome.</p>
           </div>
         )}
       </Card>

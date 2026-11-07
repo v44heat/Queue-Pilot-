@@ -24,3 +24,6 @@ export function estimateInfo(ticket) {
   if (ticket.predicted_waiting_time != null) return { value: `${Math.round(ticket.predicted_waiting_time)} minutes`, note: 'Estimate made when you joined.' }
   return { value: 'Not available', note: '' }
 }
+
+export const fmtPct = (fraction) => (fraction == null ? '-' : `${Math.round(fraction * 1000) / 10}%`)
+export const fmtNum = (v, d = 2) => (v == null ? '-' : Number(v).toFixed(d))

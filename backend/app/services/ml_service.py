@@ -165,8 +165,7 @@ def live_performance() -> dict:
         mv = db.session.get(ModelVersion, mv_id) if mv_id else None
         entry = {"source": source, "model_version_id": mv_id, "n": n,
                  "model": None if mv is None else f"{mv.model_name} {mv.version}"}
-        entry.update(training.compute_metrics([l.actual_value for l in logs], [l.prediction for l in logs]) if n >= 2
-                     else {"mae": None, "rmse": None, "r2": None})
+        entry.update(training.reporting_metrics([l.actual_value for l in logs], [l.prediction for l in logs]))
         out[label] = entry
     pending = db.session.query(func.count(PredictionLog.id)).filter(PredictionLog.actual_value.is_(None)).scalar()
     return {"groups": list(out.values()), "predictions_awaiting_outcome": pending}
